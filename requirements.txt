@@ -1,1 +1,8 @@
-
+pandas
+langchain-core
+langchain-chroma
+langchain-ollama
+ipykernel
+pytest
+pydantic
+ollama
