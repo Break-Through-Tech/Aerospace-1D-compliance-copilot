@@ -4,5 +4,5 @@ langchain-chroma
 langchain-ollama
 ipykernel
 pytest
-pydantic
+pydantic>=2,<3
 ollama
