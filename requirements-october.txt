@@ -1,0 +1,10 @@
+# Standalone October baseline; existing indexing dependencies stay in requirements.txt.
+numpy
+pandas
+pydantic>=2,<3
+ollama
+requests
+scikit-learn
+tabulate
+# Optional acceleration: pip install faiss-cpu (NumPy fallback is built in).
+# Optional providers: pip install anthropic google-genai sentence-transformers

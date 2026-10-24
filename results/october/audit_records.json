@@ -1,0 +1,1040 @@
+[
+  {
+    "requirement_id": "1",
+    "requirement_text": "The system shall document all functional and COTS-derived requirements in the Software Requirements Specification (SRS), approved by the project's Configuration Control Board prior to baseline release.",
+    "retrieved_clause_ids": [
+      "4.1.2",
+      "4.1.3",
+      "3.1.12",
+      "2.2.8",
+      "3.7.2"
+    ],
+    "verdict": {
+      "clause_id": "4.1.2",
+      "evidence": "The project manager shall establish, capture, record, approve, and maintain software requirements, including requirements for COTS, GOTS, MOTS, OSS, or reused software components, as part of the technical specification.",
+      "missing_elements": [],
+      "rationale": "The requirement states that functional and COTS-derived requirements must be documented in the SRS, approved by the Configuration Control Board prior to baseline release. This aligns with the clause's obligation to establish, capture, record, approve, and maintain software requirements as part of the technical specification. The clause explicitly covers COTS requirements, which matches the requirement's focus on COTS-derived requirements. The requirement specifies approval by the Configuration Control Board prior to baseline release, which corresponds to the clause's 'approve' action. The clause's mention of 'technical specification' may be interpreted as the SRS in this context, given NASA's common usage of SRS as a technical document. The requirement's emphasis on documentation in the SRS and approval by the Configuration Control Board is directly covered by the clause's actions of 'establish, capture, record, approve, and maintain' software requirements.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "2",
+    "requirement_text": "The software requirements shall be derived from the top-level mission systems engineering requirements document.",
+    "retrieved_clause_ids": [
+      "4.1.3",
+      "4.1.2",
+      "3.7.2",
+      "4.5.12",
+      "3.1.13"
+    ],
+    "verdict": {
+      "clause_id": "4.1.3",
+      "evidence": "The project manager shall perform software requirements analysis based on flowed-down and derived requirements from the top-level systems engineering requirements, safety and reliability analyses, and the hardware specifications and design.",
+      "missing_elements": [],
+      "rationale": "The requirement states that software requirements must be derived from the top-level mission systems engineering requirements document. This matches the clause 4.1.3 which specifies that software requirements analysis is based on flowed-down and derived requirements from the top-level systems engineering requirements. The requirement focuses on the source of software requirements (top-level mission systems engineering requirements document), which aligns with the clause's obligation to use top-level systems engineering requirements as a basis for software requirements analysis.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "3",
+    "requirement_text": "Requirement changes shall be recorded in a spreadsheet maintained by the lead engineer, with no formal review or approval workflow.",
+    "retrieved_clause_ids": [
+      "4.1.5",
+      "2.2.7",
+      "4.1.2",
+      "3.1.12",
+      "3.5.2"
+    ],
+    "verdict": {
+      "clause_id": "4.1.5",
+      "evidence": "The project manager shall track and manage changes to the software requirements.",
+      "missing_elements": [
+        "The requirement specifies that changes are recorded in a spreadsheet maintained by the lead engineer, but the clause requires the project manager to track and manage changes. The clause does not address the use of a spreadsheet or the lead engineer.",
+        "The requirement states there is no formal review or approval workflow, but the clause does not specify any review or approval workflow for changes."
+      ],
+      "rationale": "The requirement states that changes must be recorded in a spreadsheet maintained by the lead engineer, but the clause specifies that the project manager must track and manage changes. The requirement does not mention the project manager, but the clause requires the project manager to handle changes. The requirement also states there is no formal review or approval workflow, which is not covered by the clause. The clause does not address the spreadsheet or the lead engineer, so the requirement does not fully align with the clause.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "4",
+    "requirement_text": "The system shall undergo requirements validation using operational scenarios representative of the customer's mission environment, with results reviewed by the customer representative before baseline.",
+    "retrieved_clause_ids": [
+      "4.1.7",
+      "4.5.8",
+      "4.5.12",
+      "4.1.3",
+      "4.5.6"
+    ],
+    "verdict": {
+      "clause_id": "4.1.7",
+      "evidence": "The project manager shall perform requirements validation to ensure that the software will perform as intended in the customer environment.",
+      "missing_elements": [
+        "Customer representative review of validation results before baseline"
+      ],
+      "rationale": "The requirement specifies that the system undergoes requirements validation using operational scenarios representative of the customer's mission environment, with results reviewed by the customer representative before baseline. This aligns with the clause's obligation to perform requirements validation in the customer environment. The clause does not explicitly mention customer representative review, but the requirement states that results must be reviewed by the customer representative before baseline. This is a specific condition that the clause does not cover, so it is a missing element.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "5",
+    "requirement_text": "The software architecture document shall be produced at the completion of the design phase and made available upon request.",
+    "retrieved_clause_ids": [
+      "4.3.2",
+      "4.2.3",
+      "4.2.4",
+      "4.4.7",
+      "3.1.6"
+    ],
+    "verdict": {
+      "clause_id": "4.2.3",
+      "evidence": "The project manager shall transform the requirements for the software into a recorded software architecture.",
+      "missing_elements": [],
+      "rationale": "The requirement states that the software architecture document shall be produced at the completion of the design phase. This aligns with the clause that the project manager shall transform requirements into a recorded software architecture. The clause specifies that the software architecture must be recorded, which corresponds to producing the document. The requirement mentions production at the completion of the design phase, which is consistent with the clause's intent of transforming requirements into architecture during the design phase. The clause does not specify timing (e.g., 'upon request'), but the requirement's 'made available upon request' is covered by the clause's 'recorded' nature (i.e., available for review).",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "6",
+    "requirement_text": "The detailed design document shall describe each software unit's interfaces and algorithms sufficient for implementation and unit testing.",
+    "retrieved_clause_ids": [
+      "4.3.2",
+      "4.5.13",
+      "2.1.5.7",
+      "2.1.5.8",
+      "4.4.5"
+    ],
+    "verdict": {
+      "clause_id": "4.3.2",
+      "evidence": "The project manager shall develop, record, and maintain a software design based on the software architectural design that describes the lower-level units so that they can be coded, compiled, and tested.",
+      "missing_elements": [],
+      "rationale": "The requirement states that the detailed design document shall describe each software unit's interfaces and algorithms sufficient for implementation and unit testing. This aligns with the clause 4.3.2 which requires the project manager to develop a software design that describes lower-level units for coding, compiling, and testing. The clause specifies that the design must be based on the architectural design and describe lower-level units to enable coding and testing, which matches the requirement's focus on interfaces and algorithms for implementation and unit testing.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "7",
+    "requirement_text": "Developers shall write source code implementing the software design approved at Critical Design Review.",
+    "retrieved_clause_ids": [
+      "4.4.2",
+      "4.3.2",
+      "3.1.10",
+      "3.3.3",
+      "3.1.8"
+    ],
+    "verdict": {
+      "clause_id": "4.3.2",
+      "evidence": "The project manager shall develop, record, and maintain a software design based on the software architectural design that describes the lower-level units so that they can be coded, compiled, and tested.",
+      "missing_elements": [],
+      "rationale": "The requirement states that developers shall write source code implementing the software design approved at Critical Design Review. The retrieved clause 4.3.2 specifies that the project manager must develop, record, and maintain a software design based on the software architectural design that describes lower-level units for coding, compiling, and testing. This aligns with the requirement's focus on having a software design that is approved (implied by the Critical Design Review) and then implemented through source code. The clause ensures that the design is properly documented and maintained for the purpose of coding, which matches the requirement's intent.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "8",
+    "requirement_text": "All source code for the project shall be written in Python.",
+    "retrieved_clause_ids": [
+      "3.8.1",
+      "3.1.10",
+      "4.4.2",
+      "4.4.3",
+      "3.11.7"
+    ],
+    "verdict": {
+      "clause_id": "3.8.1",
+      "evidence": "The project manager shall define the approach to the automatic generation of software source code including:",
+      "missing_elements": [
+        "The requirement specifies the programming language (Python) but the clause 3.8.1 does not address language selection or constraints."
+      ],
+      "rationale": "The requirement states that all source code must be written in Python. This requirement does not directly address the clause 3.8.1 which focuses on defining the approach to automatic generation of software source code. The clause 3.8.1 is about the process of generating code automatically, not the language used for the code. Therefore, this clause is not the most relevant for the requirement.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "9",
+    "requirement_text": "Static analysis shall be performed on all source code prior to release to detect defects.",
+    "retrieved_clause_ids": [
+      "4.4.4",
+      "3.11.7",
+      "3.7.4",
+      "4.5.11",
+      "5.5.1"
+    ],
+    "verdict": {
+      "clause_id": "4.4.4",
+      "evidence": "The project manager shall use static analysis tools to analyze the code during the development and testing phases to, at a minimum, detect defects, software security, code coverage, and software complexity.",
+      "missing_elements": [],
+      "rationale": "The requirement states that static analysis shall be performed on all source code prior to release to detect defects. The retrieved clause 4.4.4 specifies that the project manager shall use static analysis tools to analyze code during development and testing phases to detect defects. The requirement focuses on performing static analysis prior to release to detect defects, which aligns with the clause's obligation to use static analysis tools to detect defects during development and testing phases. The clause covers the minimum requirement of detecting defects, which matches the requirement's focus on defect detection. The requirement does not specify the phases (development and testing) but the clause covers the necessary phases for static analysis. The requirement's 'prior to release' aligns with the clause's 'during development and testing phases' as release typically occurs after testing. The clause also mentions other aspects (software security, code coverage, complexity) but the requirement only specifies defect detection. However, the clause's main obligation is to detect defects, which is covered by the requirement. The requirement does not explicitly mention the use of tools, but the clause specifies using static analysis tools, which is implied by the requirement's focus on static analysis. The requirement does not mention the phases, but the clause covers the necessary phases for static analysis. The requirement is specific to 'prior to release', which is covered by the clause's 'during development and testing phases' as release happens after testing. The clause is the most specific match for the requirement's focus on static analysis for defect detection.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "10",
+    "requirement_text": "Each software unit shall be unit tested prior to integration, with test cases covering nominal and off-nominal conditions.",
+    "retrieved_clause_ids": [
+      "4.4.5",
+      "4.5.14",
+      "4.5.13",
+      "4.5.3",
+      "4.5.4"
+    ],
+    "verdict": {
+      "clause_id": "4.4.5",
+      "evidence": "The project manager shall unit test the software code.",
+      "missing_elements": [],
+      "rationale": "The requirement states that each software unit shall be unit tested prior to integration. This aligns with the clause that the project manager shall unit test the software code. The clause specifies the action (unit test) and the subject (software code). The requirement adds the condition of testing prior to integration and covering nominal and off-nominal conditions, but these are additional requirements beyond the clause. The clause does not specify the timing (prior to integration) or the test cases (nominal/off-nominal), but the requirement does not contradict the clause. The clause's main obligation is unit testing the software code, which the requirement addresses by stating unit testing prior to integration. The requirement does not add elements that are missing from the clause; it adds extra conditions that are not part of the clause's obligation.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "11",
+    "requirement_text": "Unit tests shall be automated and re-executable via the continuous integration pipeline to ensure repeatable results.",
+    "retrieved_clause_ids": [
+      "4.4.6",
+      "4.4.5",
+      "4.5.14",
+      "4.5.13",
+      "4.5.11"
+    ],
+    "verdict": {
+      "clause_id": "4.4.6",
+      "evidence": "The project manager shall assure that the unit test results are repeatable.",
+      "missing_elements": [],
+      "rationale": "The requirement states that unit tests must be automated and re-executable via the continuous integration pipeline to ensure repeat as the clause requires repeatable results. The clause focuses on the assurance of repeatable unit test results, which aligns with the requirement's emphasis on automation and re-executability for repeatability. The requirement adds extra steps (automation and CI pipeline) but does not contradict the clause's intent. The clause's obligation is met by the requirement's implementation.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "12",
+    "requirement_text": "A Version Description Document shall accompany each software release, identifying included changes, known issues, and build configuration.",
+    "retrieved_clause_ids": [
+      "4.4.7",
+      "5.1.4",
+      "5.1.6",
+      "5.1.7",
+      "5.1.2"
+    ],
+    "verdict": {
+      "clause_id": "4.4.7",
+      "evidence": "The project manager shall provide a software version description for each software release.",
+      "missing_elements": [],
+      "rationale": "The requirement states that a Version Description Document shall accompany each software release, identifying included changes, known issues, and build configuration. This directly matches the clause 4.4.7 which requires the project manager to provide a software version description for each software release. The clause specifies the action (provide a software version description) and the scope (for each software release), which aligns with the requirement's requirement of a Version Description Document accompanying each software release. The requirement adds details about what the document should identify (included changes, known issues, build configuration), but this is extra information beyond the clause's obligation and does not affect the coverage. The clause does not specify the content of the version description, but the requirement's additional details are not required by the clause and do not create a gap. Therefore, the requirement covers the clause's obligation.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "13",
+    "requirement_text": "The software shall pass system-level tests before release.",
+    "retrieved_clause_ids": [
+      "4.5.3",
+      "4.5.13",
+      "4.5.8",
+      "4.5.12",
+      "4.5.7"
+    ],
+    "verdict": {
+      "clause_id": "4.5.8",
+      "evidence": "The project manager shall validate the software system on the targeted platform or high-fidelity simulation.",
+      "missing_elements": [],
+      "rationale": "The requirement 'The software shall pass system-level tests before release' is about ensuring the software passes system-level tests prior to release. Clause 4.5.8 states that the project manager must validate the software system on the targeted platform or high-fidelity simulation. This validation process inherently involves system-level testing to ensure the software functions correctly in the intended environment before release. The clause directly addresses the obligation of validating the software system, which aligns with the requirement of passing system-level tests before release. The requirement does not add extra steps beyond what the clause mandates, so it meets the clause's intent.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "14",
+    "requirement_text": "Software builds shall be checked into the version control system before being released to the test team.",
+    "retrieved_clause_ids": [
+      "4.4.7",
+      "4.6.4",
+      "4.5.12",
+      "4.5.7",
+      "4.5.4"
+    ],
+    "verdict": {
+      "clause_id": "4.4.7",
+      "evidence": "The project manager shall provide a software version description for each software release.",
+      "missing_elements": [],
+      "rationale": "The requirement states that software builds must be checked into version control before release to the test team. This aligns with the clause's obligation to provide a software version description for each release. The clause requires a version description for each release, which implies that builds must be versioned and controlled before release. The requirement does not explicitly mention 'version description' but implies the need for version control before release, which is consistent with the clause's intent.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "15",
+    "requirement_text": "Test results shall be reviewed by the test lead and filed in the project archive.",
+    "retrieved_clause_ids": [
+      "4.5.5",
+      "5.3.2",
+      "3.3.2",
+      "4.6.6",
+      "5.3.4"
+    ],
+    "verdict": {
+      "clause_id": "4.5.5",
+      "evidence": "The project manager shall evaluate test results and record the evaluation.",
+      "missing_elements": [
+        "The requirement specifies that test results shall be reviewed by the test lead, but the clause states that the project manager shall evaluate test as the subject of the obligation. The requirement does not match the subject (who must do the action) as the clause requires the project manager to evaluate test results, but the requirement states that the test lead should review the test results."
+      ],
+      "rationale": "The requirement states that test results shall be reviewed by the test lead and filed in the project archive. The retrieved clause 4.5.5 states that the project manager shall evaluate test results and record the evaluation. The requirement specifies that the review should be done by the test lead, but the clause specifies that the project manager is responsible for evaluating test results. The requirement also states that the results should be filed in the project archive, which is not explicitly mentioned in the clause. However, the clause requires recording the evaluation, which could be considered as filing in the project archive. The requirement adds an extra step of review by the test lead, but the clause does not specify who evaluates the test results. The requirement may not fully cover the clause's obligation as it specifies a different role (test lead) for review instead of the project manager.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "16",
+    "requirement_text": "Code coverage shall be measured using a coverage tool during unit testing.",
+    "retrieved_clause_ids": [
+      "4.5.10",
+      "4.5.9",
+      "3.7.4",
+      "4.4.5",
+      "4.4.4"
+    ],
+    "verdict": {
+      "clause_id": "4.5.9",
+      "evidence": "The project manager shall ensure that the code coverage measurements for the software are selected, implemented, tracked, recorded, and reported.",
+      "missing_elements": [],
+      "rationale": "The requirement states that code coverage shall be measured using a coverage tool during unit testing. This aligns with the clause that requires the project manager to ensure code coverage measurements are selected, implemented, tracked, recorded, and reported. The requirement specifies the use of a coverage tool during unit testing, which is a specific implementation detail that falls under the 'implemented' aspect of the clause. The clause does not require the tool to be used during unit testing specifically, but the requirement's focus on unit testing is a valid subset of the clause's scope. The clause covers the necessary elements: selection, implementation, tracking, recording, and reporting of code coverage measurements. The requirement addresses the implementation of code coverage measurements using a tool during unit testing, which is a subset of the clause's requirements. The clause does not require the tool to be used during unit testing, but the requirement's context of unit testing is a valid subset of the clause's scope. The requirement does not add extra steps beyond what the clause requires; it specifies the use of a coverage tool during unit testing, which is a specific implementation detail that the clause covers through 'implemented'.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "17",
+    "requirement_text": "Code coverage percentage shall be calculated by manually estimating the proportion of code exercised, without executing automated test suites.",
+    "retrieved_clause_ids": [
+      "4.5.10",
+      "4.5.9",
+      "3.7.4",
+      "4.4.4",
+      "2.1.5.7"
+    ],
+    "verdict": {
+      "clause_id": "4.5.10",
+      "evidence": "The project manager shall verify code coverage is measured by analysis of the results of the execution of tests.",
+      "missing_elements": [
+        "The requirement specifies manual estimation of code coverage without automated test execution, but the clause requires verification by analysis of test execution results. This means the requirement does not align with the clause's obligation to measure code coverage through test execution analysis."
+      ],
+      "rationale": "The requirement states that code coverage percentage is calculated by manually estimating the proportion of code exercised without executing automated test suites. This contradicts the clause, which requires verification by analysis of test execution results. The clause mandates that code coverage is measured through test execution analysis, not manual estimation. Therefore, the requirement does not meet the clause's intent.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "18",
+    "requirement_text": "Regression tests shall be executed after each software change to confirm previously fixed defects do not reappear.",
+    "retrieved_clause_ids": [
+      "4.5.11",
+      "5.5.1",
+      "5.5.3",
+      "4.5.7",
+      "4.5.12"
+    ],
+    "verdict": {
+      "clause_id": "4.5.11",
+      "evidence": "The project manager shall plan and conduct software regression testing to demonstrate that defects have not been introduced into previously integrated or tested software and have not produced a security vulnerability.",
+      "missing_elements": [],
+      "rationale": "The requirement specifies that regression tests must be executed after each software change to confirm previously fixed defects do not reappear. This aligns with the clause's obligation to plan and conduct regression testing to ensure defects have not been reintroduced into previously integrated or tested software. The clause covers the core obligation of regression testing to prevent defects from reappearing, which matches the requirement's focus on post-change regression testing to verify defect stability.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "19",
+    "requirement_text": "All requirements associated with identified hazard mitigations shall be verified through dedicated test procedures traceable to the hazard analysis report.",
+    "retrieved_clause_ids": [
+      "4.5.12",
+      "3.7.4",
+      "4.5.10",
+      "3.11.5",
+      "3.7.5"
+    ],
+    "verdict": {
+      "clause_id": "4.5.12",
+      "evidence": "The project manager shall verify through test the software requirements that trace to a hazardous event, cause, or mitigation technique.",
+      "missing_elements": [],
+      "rationale": "The requirement states that all requirements associated with identified hazard mitigations shall be verified through dedicated test procedures traceable to the hazard analysis report. This aligns with the clause that the project manager shall verify software requirements that trace to a hazardous event, cause, or mitigation technique. The requirement specifies that the verification must be through dedicated test procedures traceable to the hazard analysis report, which corresponds to the clause's obligation of verifying software requirements that trace to hazardous events, causes, or mitigation techniques. The clause does not specify the need for dedicated test procedures or traceability to a hazard analysis report, but the requirement implies that the verification must be traceable to the hazard analysis report. However, the clause's main obligation is about verifying software requirements that trace to hazardous events, causes, or mitigation techniques, which is directly addressed by the requirement. The requirement adds the need for dedicated test procedures and traceability to the hazard analysis report, but the clause does not require these specific elements. The clause's intent is met as the requirement addresses the clause's obligation.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "20",
+    "requirement_text": "Uplinked command tables shall be validated against expected checksums before execution on the spacecraft.",
+    "retrieved_clause_ids": [
+      "2.1.1.3",
+      "2.1.1.2",
+      "2.1.1.4",
+      "2.1.2.3",
+      "3.7.2"
+    ],
+    "verdict": {
+      "clause_id": "2.1.1.3",
+      "evidence": "The NASA OCE shall periodically review the project requirements mapping matrices.",
+      "missing_elements": [
+        "Periodic review of project requirements mapping matrices is not related to validating command tables against checksums",
+        "The requirement does not mention any mapping matrices or periodic reviews"
+      ],
+      "rationale": "The requirement is about validating command tables against checksums before execution. The retrieved clause 2.1.1.3 is about reviewing project requirements mapping matrices. This clause does not directly address validation of command tables against checksums. The other clauses are about benchmarking capabilities or authorizing appraisals, which are not relevant to the specific validation requirement. Therefore, the most relevant clause is 2.1.1.3, but it does not cover the requirement.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "21",
+    "requirement_text": "Third-party open-source libraries shall be included in the build without additional testing, since they are assumed reliable based on community usage.",
+    "retrieved_clause_ids": [
+      "4.5.14",
+      "2.1.5.7",
+      "4.4.8",
+      "4.5.12",
+      "2.1.5.10"
+    ],
+    "verdict": {
+      "clause_id": "4.5.14",
+      "evidence": "The project manager shall test embedded COTS, GOTS, MOTS, OSS, or reused software components to the same level required to accept a custom developed software component for its intended use.",
+      "missing_elements": [
+        "Testing of OSS components to the same level as custom components"
+      ],
+      "rationale": "The requirement states that third-party open-source libraries (OSS) should be included without additional testing, but the clause requires testing OSS components to the same level as custom developed components. This contradicts the requirement's assumption of reliability based on community usage.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "22",
+    "requirement_text": "A cybersecurity assessment shall be conducted on all software components, including open-source and reused components, per Agency IT security policy.",
+    "retrieved_clause_ids": [
+      "3.11.2",
+      "3.11.5",
+      "3.11.3",
+      "3.7.4",
+      "3.7.5"
+    ],
+    "verdict": {
+      "clause_id": "3.11.2",
+      "evidence": "The project manager shall perform a software cybersecurity assessment on the software components per the Agency security policies and the project requirements, including risks posed by the use of COTS, GOTS, MOTS, OSS, or reused software components.",
+      "missing_elements": [],
+      "rationale": "The requirement states that a cybersecurity assessment shall be conducted on all software components, including open-source and reused components, per Agency IT security policy. This matches the clause 3.11.2 which requires the project manager to perform a software cybersecurity assessment on software components per Agency security policies and project requirements, including risks from COTS, GOTS, MOTS, OSS, or reused components. The requirement specifies 'per Agency IT security policy' which aligns with 'per the Agency security policies' in the clause. The requirement mentions 'open-source' which corresponds to 'OSS' in the clause, and 'reused components' which corresponds to 'reused software components'. The clause requires the assessment to be performed by the project manager, which is consistent with the requirement's implication of a formal assessment process.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "23",
+    "requirement_text": "Cybersecurity risks for the ground software system shall be documented in the project risk register along with corresponding mitigation actions.",
+    "retrieved_clause_ids": [
+      "3.11.3",
+      "3.11.2",
+      "3.11.5",
+      "5.2",
+      "4.5.12"
+    ],
+    "verdict": {
+      "clause_id": "3.11.3",
+      "evidence": "The project manager shall identify cybersecurity risks, along with their mitigations, in flight and ground software systems and plan the mitigations for these systems.",
+      "missing_elements": [],
+      "rationale": "The requirement states that cybersecurity risks for the ground software system shall be documented in the project risk register along with corresponding mitigation actions. The retrieved clause 3.11.3 states that the project manager shall identify cybersecurity risks, along with their mitigations, in flight and ground software systems and plan the mitigations for these systems. This clause directly addresses the requirement as it specifies that the project manager must identify and plan mitigations for cybersecurity risks in ground software systems. The requirement aligns with this clause as it mandates documentation of risks and mitigations in the project risk register, which is consistent with the clause's obligation to identify and plan mitigations.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "24",
+    "requirement_text": "The flight software shall implement encrypted command authentication for all uplink communications in accordance with NASA-STD-1006.",
+    "retrieved_clause_ids": [
+      "3.11.4",
+      "3.7.2",
+      "3.1.10",
+      "2.1.2.3",
+      "3.6.1"
+    ],
+    "verdict": {
+      "clause_id": "3.11.4",
+      "evidence": "The project manager shall implement protections for software systems with communications capabilities against unauthorized access per the requirements contained in the NASA-STD-1006, Space System Protection Standard.",
+      "missing_elements": [],
+      "rationale": "The requirement specifies encrypted command authentication for uplink communications, which falls under 'protections for software systems with communications capabilities against unauthorized access' as defined in NASA-STD-1006. This matches the clause's focus on implementing protections per NASA-STD-1006.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "25",
+    "requirement_text": "Cybersecurity mitigations shall be documented in the design but are not required to be tested prior to launch due to schedule constraints.",
+    "retrieved_clause_ids": [
+      "3.11.5",
+      "3.11.3",
+      "4.5.12",
+      "3.7.4",
+      "3.11.2"
+    ],
+    "verdict": {
+      "clause_id": "3.11.5",
+      "evidence": "The project manager shall test the software and record test results for the required software cybersecurity mitigation implementations identified from the security vulnerabilities and security weaknesses analysis.",
+      "missing_elements": [
+        "The requirement states that cybersecurity mitigations are not required to be tested prior to launch, but clause 3.1:11.5 requires testing of cybersecurity mitigations. This creates a contradiction."
+      ],
+      "rationale": "The requirement states that cybersecurity mitigations are not required to be tested prior to launch. However, the clause 3.11.5 requires the project manager to test the software and record test results for the required software cybersecurity mitigation implementations. This means that the requirement contradicts the clause because it states that testing is not required prior to launch, while the clause mandates testing. Therefore, the clause's intent is not met, indicating a Gap.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "26",
+    "requirement_text": "Developers shall follow secure coding guidelines documented in the project's Secure Coding Standard, with adherence recorded during code review.",
+    "retrieved_clause_ids": [
+      "3.11.7",
+      "3.11.6",
+      "4.4.3",
+      "3.7.4",
+      "3.7.5"
+    ],
+    "verdict": {
+      "clause_id": "3.11.7",
+      "evidence": "The project manager shall verify that the software code meets the project\u2019s secure coding standard by using the results from static analysis tool(s).",
+      "missing_elements": [
+        "The requirement does not specify that verification must be done by the project manager",
+        "The requirement does not mention using static analysis tools as the method for verification"
+      ],
+      "rationale": "The requirement states that developers shall follow secure coding guidelines documented in the project's Secure Coding Standard, with adherence recorded during code review. The retrieved clause 3.11.7 specifies that the project manager must verify code meets the secure coding standard using static analysis tool results. This clause focuses on verification via static analysis, while the requirement emphasizes adherence being recorded during code review. The requirement does not explicitly mention static analysis tools or the project manager's role in verification. However, the requirement's focus on recording adherence during code review aligns with the clause's intent of ensuring compliance with the secure coding standard. The missing elements are: 1) The requirement does not specify that verification must be done by the project manager (the clause specifies the project manager's role), 2) The requirement does not mention using static analysis tools as the method for verification. The requirement adds extra steps (recording adherence during code review) which are not part of the clause but do not affect the verdict. The clause's intent is met as the requirement ensures compliance with the secure coding standard through code review, which is a form of verification.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "27",
+    "requirement_text": "Code reviewers shall manually check for secure coding compliance during peer review; static analysis tools are used only for style formatting.",
+    "retrieved_clause_ids": [
+      "3.11.7",
+      "4.4.4",
+      "3.7.4",
+      "3.11.6",
+      "3.7.5"
+    ],
+    "verdict": null,
+    "grounded": false,
+    "error": "judge failed after retries: 1 validation error for AuditVerdict\n  Value error, Partial/Gap verdicts must list at least one missing element [type=value_error, input_value={'clause_id': '3.11.7', '...ion.\", 'verdict': 'Gap'}, input_type=dict]\n    For further information visit https://errors.pydantic.d"
+  },
+  {
+    "requirement_id": "28",
+    "requirement_text": "The system shall log all failed login attempts to a local file for 30 days.",
+    "retrieved_clause_ids": [
+      "4.5.11",
+      "4.5.3",
+      "4.6.3",
+      "5.1.7",
+      "5.5.1"
+    ],
+    "verdict": {
+      "clause_id": "4.5.11",
+      "evidence": "The project manager shall plan and conduct software regression testing to demonstrate that defects have not been introduced into previously integrated or tested software and have not produced a security vulnerability.",
+      "missing_elements": [
+        "The requirement does not specify regression testing but rather a logging mechanism. The clause requires regression testing to demonstrate defects and security vulnerabilities, but the requirement is about logging failed login attempts, which is a specific security feature. The clause does not address the logging requirement directly.",
+        "The requirement does not mention testing or verification of the logging mechanism, which is needed to ensure it works as intended."
+      ],
+      "rationale": "The requirement is about logging failed login attempts, which is a security-related feature. Clause 4.5.11 addresses security vulnerabilities through regression testing, which is relevant to the requirement. However, the requirement does not specify regression testing but rather a logging mechanism. The clause focuses on demonstrating that defects have not been introduced and security vulnerabilities are not produced, which is a broader security context than the specific logging requirement. The other clauses (4.5.3, 4.6.3, 5.1.7, 5.5.1) are less directly related to logging failed login attempts.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "29",
+    "requirement_text": "The project shall maintain a requirements traceability matrix linking each software requirement to its design element, source code module, and verification test case, updated at each baseline.",
+    "retrieved_clause_ids": [
+      "3.1.13",
+      "4.5.12",
+      "4.1.2",
+      "4.1.3",
+      "4.5.7"
+    ],
+    "verdict": {
+      "clause_id": "3.1.13",
+      "evidence": "The requirement states that the project shall maintain a requirements traceability matrix linking each software requirement to its design element, source code module, and verification test case, updated at each baseline. This matches clause 3.1.13 which requires project managers to maintain a requirements mapping matrix or multiple matrices against requirements in this NPR, including those delegated to other parties or accomplished by contract vehicles or Space Act Agreements. The requirement specifies the traceability matrix linking to design element, source code module, and verification test case, which is a more specific detail than the general 'requirements mapping matrices' in the clause. The requirement also mentions 'updated at each baseline', which is not explicitly stated in the clause but is an extra step that does not lower the verdict. The clause does not specify the exact content of the matrix (design element, source code module, verification test case) or update frequency (at each baseline), but the requirement addresses these elements. The other clauses (4.5.12, 4.1.2, 4.1.3, 4.5.7) do not directly address the maintenance of a traceability matrix linking to design element, source code module, and verification test case.",
+      "missing_elements": [],
+      "rationale": "The requirement addresses the maintenance of a requirements traceability matrix linking software requirements to design elements, source code modules, and verification test cases, updated at each baseline. Clause 3.1.13 is the most specific match because it requires maintaining a requirements mapping matrix against requirements in this NPR. The requirement specifies the content of the matrix (design element, source code module, verification test case) and update frequency (at each baseline), which are not explicitly stated in the clause but are covered by the clause's obligation to maintain the matrix. The clause does not require the specific content or update frequency, but the requirement adds these details without contradicting the clause. The other clauses do not address traceability matrices in this context. Therefore, the requirement meets clause 3.1.13 with no missing elements because the clause's obligation is satisfied by the requirement's description of the traceability matrix, even though the specific content and update frequency are not explicitly stated in the clause. The requirement adds extra details (update at each baseline) that do not lower the verdict as they are beyond the clause's scope. The missing_elements list is empty because the clause's obligation is fully covered by the requirement's description of the traceability matrix. The requirement does not contradict the clause and is verifiable through the traceability matrix itself. The clause's intent is met by the requirement's description of the matrix, so the verdict is 'Meets'.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "30",
+    "requirement_text": "Safety-critical flight control software shall achieve a minimum of 80 percent statement coverage during unit testing.",
+    "retrieved_clause_ids": [
+      "3.7.4",
+      "3.7.5",
+      "4.5.12",
+      "3.7.2",
+      "4.5.9"
+    ],
+    "verdict": null,
+    "grounded": false,
+    "error": "judge failed after retries: 1 validation error for AuditVerdict\n  Value error, Partial/Gap verdicts must list at least one missing element [type=value_error, input_value={'clause_id': '3.7.4', 'e...ion.\", 'verdict': 'Gap'}, input_type=dict]\n    For further information visit https://errors.pydantic.d"
+  },
+  {
+    "requirement_id": "31",
+    "requirement_text": "All safety-critical software modules shall maintain a cyclomatic complexity of 15 or lower; any module exceeding this threshold shall be reviewed and waived with documented rationale by the technical authority.",
+    "retrieved_clause_ids": [
+      "3.7.5",
+      "3.7.4",
+      "3.7.2",
+      "3.7.1",
+      "5.5.2"
+    ],
+    "verdict": {
+      "clause_id": "3.7.5",
+      "evidence": "The requirement states that safety-critical software modules must maintain cyclomatic complexity of 15 or lower, and any exceeding threshold must be reviewed and waived with documented rationale by technical authority. This matches the clause text: 'If a project has safety-critical software, the project manager shall ensure all identified safety-critical software components have a cyclomatic complexity value of 15 or lower. Any exceedance shall be reviewed and waived with rationale by the project manager or technical approval authority.' The requirement uses 'technical authority' instead of 'project manager or technical approval authority', but this is a minor wording difference and does not change the obligation. The clause requires the project manager to ensure the complexity is 15 or lower and handle exceedances with rationale. The requirement states the same obligation but specifies 'technical authority' instead of 'project manager or technical approval authority'. This is a minor difference and does not affect the coverage.",
+      "missing_elements": [],
+      "rationale": "The requirement directly addresses the cyclomatic complexity constraint and the review/waiver process for exceedances, matching the clause's obligation. The requirement uses 'technical authority' instead of 'project manager or technical approval authority', but this is a minor wording difference and does not change the obligation. The clause requires the project manager to handle the review and waiver, but the requirement specifies 'technical authority', which is a valid alternative path within the clause's intent. The requirement does not add extra steps beyond what the clause mandates, so it meets the clause's requirements.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "32",
+    "requirement_text": "The project has safety-critical software components, but no specific safety-critical software process has been defined beyond standard development practices.",
+    "retrieved_clause_ids": [
+      "3.7.5",
+      "3.7.2",
+      "3.7.3",
+      "3.7.1",
+      "3.7.4"
+    ],
+    "verdict": {
+      "clause_id": "3.7.5",
+      "evidence": "The requirement states that the project has safety-critical software components but no specific safety-critical software process has been defined beyond standard development practices. The retrieved clause 3.7.5 requires that if a project has safety-critical software, the project manager shall ensure all identified safety-critical software components have a cyclomatic complexity value of 15 or lower. Any exceedance shall be reviewed and waived with rationale by the project manager or technical approval authority. The requirement does not mention cyclomatic complexity or the review process for exceedances, so it does not cover the elements of clause 3.7.5. Therefore, the requirement does not meet clause 3.7.5.",
+      "missing_elements": [
+        "cyclomatic complexity value of 15 or lower",
+        "review and waiver process for exceedances with rationale"
+      ],
+      "rationale": "The requirement states that the project has safety-critical software components but no specific safety-critical software process has been defined beyond standard development practices. The retrieved clause 3.7.5 requires that if a project has safety-critical software, the project manager shall ensure all identified safety-critical software components have a cyclomatic complexity value of 15 or lower. Any exceedance shall be reviewed and waived with rationale by the project manager or technical approval authority. The requirement does not mention cyclomatic complexity or the review process for exceedances, so it does not cover the elements of clause 3.7.5. Therefore, the requirement does not meet clause 3.7.5.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "33",
+    "requirement_text": "The project shall develop and maintain a Software Configuration Management Plan defining CM roles, responsibilities, and authority for baseline control.",
+    "retrieved_clause_ids": [
+      "5.1.2",
+      "5.1.4",
+      "5.1.6",
+      "3.1.3",
+      "4.5.4"
+    ],
+    "verdict": {
+      "clause_id": "5.1.2",
+      "evidence": "The project manager shall develop a software configuration management plan that describes the functions, responsibilities, and authority for the implementation of software configuration management for the project.",
+      "missing_elements": [],
+      "rationale": "The requirement states that the project shall develop and maintain a Software Configuration Management Plan defining CM roles, responsibilities, and authority for baseline control. The retrieved clause 5.1.2 states that the project manager shall develop a software configuration management plan that describes the functions, responsibilities, and authority for the implementation of software configuration management for the project. The requirement matches the clause's obligation to develop a CM plan that defines roles, responsibilities, and authority for baseline control. The clause specifies that the project manager is responsible for this development, which aligns with the requirement's statement that the project shall develop the plan. The requirement mentions 'maintain' which is not explicitly stated in the clause but is implied by the need for ongoing management of the CM plan. The clause covers the functions, responsibilities, and authority for implementation of CM, which corresponds to the requirement's definition of CM roles, responsibilities, and authority for baseline control. The requirement specifies 'for baseline control' which is a specific application of the CM plan, but the clause covers the implementation of CM for the project, which includes baseline control. Therefore, the clause covers the requirement.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "34",
+    "requirement_text": "Change requests shall be logged in the issue tracker; however no formal evaluation or impact analysis of proposed changes is currently performed.",
+    "retrieved_clause_ids": [
+      "5.1.3",
+      "4.1.5",
+      "5.5.3",
+      "3.3.2",
+      "4.5.7"
+    ],
+    "verdict": {
+      "clause_id": "5.1.3",
+      "evidence": "The project manager shall track and evaluate changes to software products.",
+      "missing_elements": [
+        "evaluation of changes"
+      ],
+      "rationale": "The requirement states that change requests must be logged in the issue tracker, which aligns with tracking changes. However, the requirement does not mention evaluating changes, which is part of the clause. The clause requires evaluation, but the requirement states no formal evaluation or impact analysis is performed. Thus, the evaluation element is missing.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "35",
+    "requirement_text": "Source code, requirements documents, test procedures, and build scripts shall be identified as configuration items and version-controlled under the project's CM repository.",
+    "retrieved_clause_ids": [
+      "5.1.4",
+      "5.1.7",
+      "4.5.4",
+      "5.1.6",
+      "5.1.2"
+    ],
+    "verdict": {
+      "clause_id": "5.1.4",
+      "evidence": "The project manager shall identify the software configuration items (e.g., software records, code, data, tools, models, scripts) and their versions to be controlled for the project.",
+      "missing_elements": [],
+      "rationale": "The requirement states that source code, requirements documents, test procedures, and build scripts shall be identified as configuration items and version-controlled. This matches the clause's obligation to identify software configuration items and their versions to be controlled. The clause specifies 'software configuration items (e.g., software records, code, data, tools, models, scripts)' which includes the listed items. The requirement specifies version-control, which aligns with the clause's 'their versions to be controlled'.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "36",
+    "requirement_text": "Configuration audits shall be performed annually to confirm delivered software matches its baseline records.",
+    "retrieved_clause_ids": [
+      "5.1.7",
+      "5.1.6",
+      "5.1.4",
+      "3.5.2",
+      "4.6.3"
+    ],
+    "verdict": {
+      "clause_id": "5.1.7",
+      "evidence": "The project manager shall perform software configuration audits to determine the correct version of the software configuration items and verify that they conform to the records that define them.",
+      "missing_elements": [],
+      "rationale": "The requirement states that configuration audits shall be performed annually to confirm delivered software matches its baseline records. The retrieved clause 5.1.7 states that the project manager shall perform software configuration audits to determine the correct version of the software configuration items and verify that they conform to the records that define them. The requirement specifies the frequency (annually) and the purpose (confirm delivered software matches baseline records), which aligns with the clause's obligation to perform configuration audits to verify conformance to records. The clause does not specify the frequency of audits, but the requirement adds this detail which is extra rigor and not a problem. The clause's main obligation is to perform configuration audits to verify conformance to records, which the requirement addresses by stating the purpose of the audits (confirm delivered software matches baseline records).",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "37",
+    "requirement_text": "Software defects shall be tracked in the defect tracking system; defects found in supporting ground tools are handled informally via email and not entered into the tracker.",
+    "retrieved_clause_ids": [
+      "5.5.1",
+      "4.5.12",
+      "4.5.11",
+      "4.6.4",
+      "5.5.2"
+    ],
+    "verdict": {
+      "clause_id": "5.5.1",
+      "evidence": "The project manager shall track and maintain software non-conformances (including defects in tools and appropriate ground software).",
+      "missing_elements": [
+        "Defects found in supporting ground tools must be entered into the defect tracking system (not handled informally via email)"
+      ],
+      "rationale": "The requirement states that defects found in supporting ground tools are handled informally via email and not entered into the tracker. This contradicts the clause's obligation to track and maintain software non-conformances, including defects in tools. The clause requires tracking and maintenance, but the requirement specifies that these defects are handled informally without entering the tracker, which means they are not being tracked as required by the clause.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "38",
+    "requirement_text": "All reported defects shall be labeled High, Medium, or Low at the discretion of the reporting engineer, with no defined criteria distinguishing the levels.",
+    "retrieved_clause_ids": [
+      "5.5.2",
+      "4.5.11",
+      "5.5.3",
+      "5.5.1",
+      "3.7.5"
+    ],
+    "verdict": {
+      "clause_id": "5.5.2",
+      "evidence": "The project manager shall define and implement clear software severity levels for all software non-conformances (including tools, COTS, GOTS, MOTS, OSS, reused software components, and applicable ground systems).",
+      "missing_elements": [
+        "clear software severity levels must be defined and implemented by the project manager",
+        "defined criteria for distinguishing the levels"
+      ],
+      "rationale": "The requirement states that defects shall be labeled High, Medium, or Low at the discretion of the reporting engineer with no defined criteria. However, the clause requires the project manager to define and implement clear software severity levels for all software non-conformances. The requirement does not specify that the project manager must define the severity levels, but rather states that the labeling is done at the discretion of the reporting engineer without defined criteria. This means the requirement does not meet the clause's obligation because the clause requires clear severity levels to be defined and implemented by the project manager, not left to the discretion of the reporting engineer without criteria.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "39",
+    "requirement_text": "Software risks shall be recorded and reviewed monthly by the project risk board, with mitigation plans tracked to closure and status communicated to stakeholders.",
+    "retrieved_clause_ids": [
+      "5.2",
+      "3.6.5",
+      "3.11.3",
+      "3.11.2",
+      "3.7.5"
+    ],
+    "verdict": {
+      "clause_id": "5.2",
+      "evidence": "The project manager shall record, analyze, plan, track, control, and communicate all of the software risks and mitigation plans.",
+      "missing_elements": [
+        "monthly review by the project risk board",
+        "tracking mitigation plans to closure"
+      ],
+      "rationale": "The requirement specifies that software risks must be recorded and reviewed monthly by the project risk board, with mitigation plans tracked to closure and status communicated to stakeholders. The retrieved clause 5.2 states that the project manager shall record, analyze, plan, track, control, and communicate all software risks and mitigation plans. The requirement adds a monthly review by the project risk board and tracking to closure, which are not explicitly stated in the clause but are implied as part of the project manager's responsibilities. The clause does not specify the frequency of reviews or the involvement of a project risk board, so these elements are missing. However, the requirement does not add extra steps beyond what the clause covers; it specifies additional elements that are not covered by the clause.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "40",
+    "requirement_text": "Software size and defect metrics shall be collected at each milestone for internal reference; there is no defined process for utilizing this data in decision-making or reporting it beyond the immediate team.",
+    "retrieved_clause_ids": [
+      "3.2.3",
+      "2.1.5.8",
+      "2.1.5.7",
+      "5.3.4",
+      "5.4.3"
+    ],
+    "verdict": {
+      "clause_id": "3.2.3",
+      "evidence": "The project manager shall submit software planning parameters, including size and effort estimates, milestones, and characteristics, to the Center measurement repository at the conclusion of major milestones.",
+      "missing_elements": [],
+      "rationale": "The requirement states that software size and defect metrics (which are part of size and effort estimates, milestones, and characteristics) shall be collected at each milestone for internal reference. This aligns with the clause's obligation to submit software planning parameters at the conclusion of major milestones. The clause specifies submission to the Center measurement repository, which matches the requirement's internal reference purpose. The requirement does not define a process for utilizing the data in decision-making or reporting beyond the immediate team, but the clause does not require utilization beyond submission. The clause's focus is on submission at milestones, not on utilization or reporting beyond the team, so the requirement's omission of utilization and reporting processes does not contradict the clause. The requirement's statement about no defined process for utilization or reporting is consistent with the clause's scope, as the clause only mandates submission, not utilization or reporting.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "41",
+    "requirement_text": "Performance metrics such as CPU utilization and memory footprint shall be monitored throughout development and compared against allocated resource budgets and functional requirements.",
+    "retrieved_clause_ids": [
+      "5.4.5",
+      "5.4.6",
+      "2.1.5.7",
+      "3.3.2",
+      "4.5.9"
+    ],
+    "verdict": {
+      "clause_id": "5.4.5",
+      "evidence": "The project manager shall monitor measures to ensure the software will meet or exceed performance and functionality requirements, including satisfying constraints.",
+      "missing_elements": [],
+      "rationale": "The requirement specifies monitoring performance metrics (CPU utilization, memory footprint) and comparing against resource budgets and functional requirements. This aligns with the clause's obligation to monitor measures to ensure software meets performance and functionality requirements. The clause covers monitoring measures to ensure performance and functionality requirements are met, which matches the requirement's focus on monitoring performance metrics. The requirement adds comparison against resource budgets and functional requirements, which is beyond the clause's scope but does not create a gap.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "42",
+    "requirement_text": "The number of requirements changes per baseline shall be tracked informally by the systems engineer but is not reported in project status metrics.",
+    "retrieved_clause_ids": [
+      "4.1.5",
+      "5.4.6",
+      "4.1.3",
+      "2.1.5.8",
+      "5.5.3"
+    ],
+    "verdict": {
+      "clause_id": "4.1.5",
+      "evidence": "The project manager shall track and manage changes to the software requirements.",
+      "missing_elements": [
+        "The requirement states that the number of requirements changes per baseline shall be tracked informally by the systems engineer but is not reported in project status metrics. The clause requires the project manager to track and manage changes, but the requirement states that the systems engineer does it informally and does not report it."
+      ],
+      "rationale": "The requirement states that the number of requirements changes per baseline shall be tracked informally by the systems engineer but is not reported in project status metrics. The clause 4.1.5 specifies that the project manager shall track and manage changes to the software requirements. The requirement does not specify that the project manager is responsible for tracking changes, but rather the systems engineer. However, the clause 4.1.5 is the most specific match for the requirement as it deals with tracking changes to software requirements. The requirement states that the tracking is informal and not reported in project status metrics, which may not meet the clause's requirement of proper tracking and management. The missing elements are that the tracking is informal and not reported in project status metrics, which the clause does not specify. The clause requires the project manager to track and manage changes, but the requirement states that the systems engineer does it informally and does not report it. This means that the requirement does not fully comply with the clause as the clause requires the project manager to track and manage changes, but the requirement states that the systems engineer does it informally and does not report it. The missing elements are that the tracking is informal and not reported in project status metrics, which the clause does not specify. The clause does not specify that the tracking must be formal or reported in project status metrics, but the requirement states that it is informal and not reported. The requirement does not cover the clause's obligation as the clause requires the project manager to track and manage changes, but the requirement states that the systems engineer does it informally and does not report it. The missing elements are that the tracking is informal and not reported in project status metrics, which the clause does not specify. The clause does not specify that the tracking must be formal or reported in project status metrics, but the requirement states that it is informal and not reported. The requirement does not meet the clause as the clause requires the project manager to track and manage changes, but the requirement states that the systems engineer does it informally and does not report it. The missing elements are that the tracking is informal and not reported in project status metrics, which the clause does not specify.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "43",
+    "requirement_text": "The project shall develop a Software Development Plan and Software Test Plan covering the full lifecycle; a dedicated software security plan has not been developed.",
+    "retrieved_clause_ids": [
+      "3.1.3",
+      "5.1.2",
+      "3.1.8",
+      "3.11.2",
+      "3.1.6"
+    ],
+    "verdict": {
+      "clause_id": "3.1.3",
+      "evidence": "The project manager shall develop, maintain, and execute software plans, including security plans, that cover the entire software life cycle and, as a minimum, address the requirements of this directive with approved tailoring.",
+      "missing_elements": [
+        "The requirement states that a dedicated software security plan has not been developed, but the clause requires the development of security plans as part of the software plans."
+      ],
+      "rationale": "The requirement states that the project shall develop a Software Development Plan and Software Test Plan covering the full lifecycle. This aligns with the clause's obligation to develop software plans that cover the entire software life cycle. However, the requirement mentions that a dedicated software security plan has not been developed. The clause specifies that software plans 'including security plans' must be developed. Therefore, the requirement does not cover the security plan development as stated in the clause, indicating a gap in the requirement's coverage of the clause's obligation.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "44",
+    "requirement_text": "Software acceptance shall be based on successful demonstration, without further specified criteria.",
+    "retrieved_clause_ids": [
+      "3.1.5",
+      "4.5.13",
+      "4.5.3",
+      "5.5.2",
+      "4.5.8"
+    ],
+    "verdict": {
+      "clause_id": "3.1.5",
+      "evidence": "The project manager shall define and document the acceptance criteria for the software.",
+      "missing_elements": [],
+      "rationale": "The requirement states that software acceptance shall be based on successful demonstration without further specified criteria. This implies that the acceptance criteria are defined and documented by the project manager as per clause 3.1.5. The requirement does not specify additional criteria beyond successful demonstration, which aligns with the clause's obligation to define and document acceptance criteria. The clause requires defining and documenting acceptance criteria, and the requirement states that acceptance is based on successful demonstration without further specified criteria, meaning the acceptance criteria are defined (successful demonstration) and documented (implied by the requirement's statement).",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "45",
+    "requirement_text": "The project schedule shall identify Preliminary Design Review, Critical Design Review, and Test Readiness Review as milestones at which software developer progress will be reviewed and audited.",
+    "retrieved_clause_ids": [
+      "3.1.7",
+      "3.3.2",
+      "3.3.3",
+      "4.2.4",
+      "3.1.8"
+    ],
+    "verdict": {
+      "clause_id": "3.1.7",
+      "evidence": "The project manager shall define and document the milestones at which the software developer(s) progress will be reviewed and audited.",
+      "missing_elements": [],
+      "rationale": "The requirement specifies that the project schedule must identify three specific milestones (Preliminary Design Review, Critical Design Review, and Test Readiness Review) as points where software developer progress will be reviewed and audited. This directly aligns with Clause 3.1.7, which requires the project manager to define and document milestones for progress reviews and audits of software developers. The requirement explicitly states that these milestones must be identified in the project schedule, which matches the obligation in Clause 3.1.7 to define and document such milestones. No other retrieved clause addresses the specific obligation of defining milestones for progress reviews and audits in the project schedule.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "46",
+    "requirement_text": "The software developer shall deliver monthly status reports summarizing schedule progress; traceability data, change tracking information, and nonconformance records are provided only upon final delivery.",
+    "retrieved_clause_ids": [
+      "3.1.8",
+      "3.1.9",
+      "3.3.3",
+      "3.1.6",
+      "4.6.3"
+    ],
+    "verdict": {
+      "clause_id": "3.1.8",
+      "evidence": "The project manager shall require the software developer(s) to periodically report status and provide insight into software development and test activities; at a minimum, the software developer(s) will be required to allow the project manager and software assurance personnel to: ...",
+      "missing_elements": [
+        "The requirement states that traceability data, change tracking information, and nonconformance records are provided only upon final delivery. The clause 3.1.8 does not specify when these items must be provided (e.g., only upon final delivery), so this condition is not covered by the clause."
+      ],
+      "rationale": "The requirement specifies monthly status reports summarizing schedule progress, which aligns with the periodic reporting obligation in 3.1.8. The clause requires periodic reporting of status and insight into development/test activities, which matches the requirement's focus on monthly status reports. The requirement also states that traceability data, change tracking, and nonconformance records are provided only upon final delivery, which is a specific condition on when these items are provided. This condition is not explicitly covered by 3.1.8, but the clause allows for the project manager to require the developer to provide these items at a minimum when needed (e.g., for review). The requirement's condition about providing items only upon final delivery is a specific timing constraint that may not be directly covered by the clause, but the clause does not specify timing, so this is a potential gap. However, the clause's main obligation is periodic reporting, which the requirement covers with monthly reports. The requirement's additional condition about when traceability data, etc., are provided is not a problem because the clause allows for the developer to provide these items when needed (e.g., for review), and the requirement's condition is a specific implementation detail that doesn't contradict the clause.",
+      "verdict": "Partial"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "47",
+    "requirement_text": "The software developer shall provide NASA with read-only PDF printouts of source code listings upon request.",
+    "retrieved_clause_ids": [
+      "3.1.10",
+      "3.1.9",
+      "3.8.2",
+      "3.10.2",
+      "2.1.5.14"
+    ],
+    "verdict": {
+      "clause_id": "3.1.10",
+      "evidence": "The project manager shall require the software developer(s) to provide NASA with electronic access to the source code developed for the project in a modifiable format.",
+      "missing_elements": [
+        "modifiable format"
+      ],
+      "rationale": "The requirement specifies that the software developer shall provide NASA with read-only PDF printouts of source code listings upon request. The retrieved clause 3.1.10 requires electronic access to the source code in a modifiable format. The requirement does not specify that the source code must be in a modifiable format, but it does require electronic access (PDF printouts are electronic). However, the requirement specifies 'read-only PDF printouts' which is not modifiable, whereas the clause requires modifiable format. This creates a gap because the requirement does not meet the modifiable format requirement of the clause.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "48",
+    "requirement_text": "Flight software qualification testing shall use a simulation environment that has been validated and accredited per the project's V&V plan.",
+    "retrieved_clause_ids": [
+      "4.5.6",
+      "4.5.8",
+      "4.5.12",
+      "4.4.8",
+      "4.5.7"
+    ],
+    "verdict": {
+      "clause_id": "4.5.6",
+      "evidence": "The project manager shall use validated and accredited software models, simulations, and analysis tools required to perform qualification of flight software or flight equipment.",
+      "missing_elements": [],
+      "rationale": "The requirement states that flight software qualification testing shall use a simulation environment that has been validated and accredited per the project's V&V plan. This aligns with Clause 4.5.6, which mandates the use of validated and accredited software models, simulations, and analysis tools for qualification of flight software. The requirement specifies that the simulation environment must be validated and accredited per the project's V&V plan, which matches the clause's obligation to use such tools for qualification. The clause does not explicitly mention the V&V plan, but the requirement's reference to 'per the project's V&V plan' implies that the validation and accreditation are done in accordance with the plan, which is consistent with the clause's intent.",
+      "verdict": "Meets"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "49",
+    "requirement_text": "The software test plan was baselined at project start and has not been updated despite two subsequent requirements revisions.",
+    "retrieved_clause_ids": [
+      "4.5.7",
+      "4.5.3",
+      "4.5.12",
+      "4.5.11",
+      "3.2.3"
+    ],
+    "verdict": {
+      "clause_id": "4.5.7",
+      "evidence": "The project manager shall update the software test and verification plan(s) and procedure(s) to be consistent with software requirements.",
+      "missing_elements": [
+        "The project manager must update the software test and verification plan(s) and procedure(s) to be consistent with software requirements after requirements revisions."
+      ],
+      "rationale": "The requirement states that the software test plan was baselined at project start and has not been updated despite two subsequent requirements revisions. This directly relates to the obligation in clause 4.5.7, which requires the project manager to update the test and verification plan(s) to be consistent with software requirements. The requirement indicates that updates were not made after requirements revisions, which is a failure to meet the clause's obligation.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  },
+  {
+    "requirement_id": "50",
+    "requirement_text": "Development tools such as the compiler and IDE shall be selected based on team familiarity; no formal validation or accreditation of these tools has been performed.",
+    "retrieved_clause_ids": [
+      "4.4.8",
+      "4.5.6",
+      "3.1.5",
+      "5.5.2",
+      "4.5.12"
+    ],
+    "verdict": {
+      "clause_id": "4.4.8",
+      "evidence": "The project manager shall validate and accredit the software tool(s) required to develop or maintain software.",
+      "missing_elements": [
+        "validation of development tools",
+        "accreditation of development tools"
+      ],
+      "rationale": "The requirement states that development tools (compiler and IDE) are selected based on team familiarity without formal validation or accreditation. This directly contradicts the clause's obligation to validate and accredit the tools required for development or maintenance. The requirement does not address validation or accreditation, which is the core obligation of the clause. Therefore, the clause's intent is not met.",
+      "verdict": "Gap"
+    },
+    "grounded": true,
+    "error": null
+  }
+]

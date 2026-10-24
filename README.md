@@ -1,121 +1,102 @@
-# AI Studio Challenge Project Title
+# Aerospace 1D Compliance Copilot
 
-> 💡 **Note for the team:** This is just a template. Update the above title with your AI Studio Challenge Project name. Remove all guidance notes and example text in this template and populate this README with your own content. You can work on this README throughout AI Studio, and get feedback from your AI Studio Coach and Challenge Advisor before finalizing it.  
+October milestone: a non-agentic retrieval-augmented generation (RAG) baseline
+that compares software requirements with NPR 7150.2D clauses. It retrieves
+clauses, requests a structured verdict (`Meets`, `Partial`, or `Gap`), checks
+citation grounding, and evaluates against a human-labeled benchmark.
 
----
+## Repository layout
 
-### 👥 **Team Members**
+| Path | Contents |
+| --- | --- |
+| `scripts/compliance_rag_baseline.py` | October baseline CLI and evaluation pipeline |
+| `notebooks/compliance_copilot_october_ollama.ipynb` | Colab workflow with Ollama setup and file uploads |
+| `results/october/` | Original v2 archive and extracted published outputs |
+| `data/` | NASA source documents, 130 clauses, and ground-truth benchmark |
+| `src/` | Earlier preprocessing and persistent vector-index utilities |
+| `scripts/build_index.py` | Earlier persistent-index builder |
+| `notebooks/01_preprocessing.ipynb`, `02_vector_indexing.ipynb` | Earlier data and indexing notebooks |
+| `docs/coach/` | Coach events and office-hours notes |
 
-**Example:**
+## Run the October baseline locally
 
-| Name             | GitHub Handle | Contribution                                                             |
-|------------------|---------------|--------------------------------------------------------------------------|
-| Taylor Nguyen    | @taylornguyen | Data exploration, visualization, overall project coordination            |
-| Jordan Ramirez   | @jramirez     | Data collection, exploratory data analysis (EDA), dataset documentation  |
-| Amina Hassan     | @aminahassan  | Data preprocessing, feature engineering, data validation                 |
-| Priya Mehta      | @pmehta       | Model selection, hyperparameter tuning, model training and optimization  |
-| Chris Park       | @chrispark    | Model evaluation, performance analysis, results interpretation           |
+Use Python 3.10 or newer. Run commands from the repository root:
 
----
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-october.txt
+```
 
-## 🎯 **Project Highlights**
+Start Ollama in a separate terminal (`ollama serve`), then pull the models:
 
-**Example:**
+```bash
+ollama pull nomic-embed-text
+ollama pull qwen3:4b
+python scripts/compliance_rag_baseline.py \
+  --clauses data/npr-7150-2d-requirements.csv \
+  --benchmark data/npr7150_ground_truth_benchmark.csv \
+  --embedder ollama --judge ollama --k 5 \
+  --out results/runs/october-local
+```
 
-- Developed a machine learning model using `[model type/technique]` to address `[challenge project task]`.
-- Achieved `[key metric or result]`, demonstrating `[value or impact]` for `[host company]`.
-- Generated actionable insights to inform business decisions at `[host company or stakeholders]`.
-- Implemented `[specific methodology]` to address industry constraints or expectations.
+Add `--limit 5` for a short trial. Successful rows are cached in the output
+directory; rerunning with the same configuration resumes the run. Use a new
+output directory for a different experiment or changed input data.
 
----
+For a smoke check without a model download or API key:
 
-## 👩🏽‍💻 **Setup and Installation**
+```bash
+python scripts/compliance_rag_baseline.py \
+  --clauses data/npr-7150-2d-requirements.csv \
+  --benchmark data/npr7150_ground_truth_benchmark.csv \
+  --embedder tfidf --judge heuristic --k 5 \
+  --out results/runs/smoke
+```
 
-**Provide step-by-step instructions so someone else can run your code and reproduce your results. Depending on your setup, include:**
+The heuristic check verifies the pipeline; its metrics do not reproduce the
+published Ollama experiment. FAISS is optional (`pip install faiss-cpu`); the
+pipeline falls back to NumPy search. Optional SBERT, Claude, and Gemini providers
+require `sentence-transformers`, `anthropic`, and `google-genai`, respectively.
+See the CLI's `--help` for provider and model options. The earlier persistent
+indexing utilities use `requirements.txt` / `pyproject.toml`.
 
-* How to clone the repository
-* How to install dependencies
-* How to set up the environment
-* How to access the dataset(s)
-* How to run the notebook or scripts
+## Run in Colab
 
----
+Open [the October notebook](notebooks/compliance_copilot_october_ollama.ipynb)
+in Colab and run its cells in order. At step 3, upload:
 
-## 🏗️ **Project Overview**
+- `scripts/compliance_rag_baseline.py`
+- `data/npr-7150-2d-requirements.csv`
+- `data/npr7150_ground_truth_benchmark.csv`
 
-**Describe:**
+The notebook copies the uploaded script into Colab's import directory. The
+notebook's `/content` paths refer to the Colab runtime, not this repository.
 
-- How this project is connected to the Break Through Tech AI Program
-- Your AI Studio host company and the project objective and scope
-- The real-world significance of the problem and the potential impact of your work
+## Published October results
 
----
+The original Ollama v2 experiment has 50 benchmark rows and top-k = 5:
 
-## 📊 **Data Exploration**
+| Metric | Value |
+| --- | --- |
+| Retrieval hit@1 / hit@5 | 76% / 92% |
+| Verdict accuracy | 62% |
+| Gap precision / recall / F1 | 71.43% / 71.43% / 71.43% |
+| Citation groundedness | 96% |
+| Schema-valid outputs | 96% |
 
-**You might consider describing the following (as applicable):**
+Read the [full report](results/october/report.md),
+[metrics](results/october/metrics.json), and
+[result provenance](results/october/README.md).
 
-* The dataset(s) used: origin, format, size, type of data
-* Data exploration and preprocessing approaches
-* Insights from your Exploratory Data Analysis (EDA)
-* Challenges and assumptions when working with the dataset(s)
+## Branch transition
 
-**Potential visualizations to include:**
+`main-backup-2026-10-24` preserves the previous `main` at
+`0a12fa54e0a888c48f99c68856534941abda294b`, including the structured RAG
+implementation from PR #14. The organized `venya-october-rag-baseline+copilot`
+branch supplies the new main contents. The previous implementation's
+`src/rag.py`, `scripts/audit_requirement.py`, `tests/test_rag.py`, and `RAG.md`
+remain available on the backup branch. Git history is retained.
 
-* Plots, charts, heatmaps, feature visualizations, sample dataset images
-
----
-
-## 🧠 **Model Development**
-
-**You might consider describing the following (as applicable):**
-
-* Model(s) used (e.g., CNN with transfer learning, regression models)
-* Feature selection and Hyperparameter tuning strategies
-* Training setup (e.g., % of data for training/validation, evaluation metric, baseline performance)
-
-
----
-
-## 📈 **Results & Key Findings**
-
-**You might consider describing the following (as applicable):**
-
-* Performance metrics (e.g., Accuracy, F1 score, RMSE)
-* How your model performed
-* Insights from evaluating model fairness
-
-**Potential visualizations to include:**
-
-* Confusion matrix, precision-recall curve, feature importance plot, prediction distribution, outputs from fairness or explainability tools
-
----
-
-## 🚀 **Next Steps**
-
-**You might consider addressing the following (as applicable):**
-
-* What are some of the limitations of your model?
-* What would you do differently with more time/resources?
-* What additional datasets or techniques would you explore?
-
----
-
-## 📝 **License**
-
-Specify how your project can be used by others. Choose an appropriate license and link it here (e.g., MIT, Apache 2.0). Make sure your Challenge Advisor approves of the selected license type. 
-
-**Example:**
-This project is licensed under the MIT License.
-
----
-
-## 📄 **References** (Optional but encouraged)
-
-Cite relevant papers, articles, or resources that supported your project.
-
----
-
-## 🙏 **Acknowledgements** (Optional but encouraged)
-
-Thank your Challenge Advisor, host company representatives, TA, and others who supported your project.
+Project context: [challenge overview](Challenge-Project-Overview.md),
+[getting started](Getting-Started-for-Fellows.md), and [data documentation](data/README.md).

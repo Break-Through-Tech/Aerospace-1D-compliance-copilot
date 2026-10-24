@@ -10,17 +10,18 @@ Pipeline (deterministic, no agent loop):
       -> evaluation vs. the ground-truth benchmark (precision / recall / F1, citation groundedness)
 
 Usage (Colab or local):
-    pip install pandas pydantic faiss-cpu scikit-learn anthropic google-genai sentence-transformers
+    pip install -r requirements-october.txt
+    # Optional providers: pip install anthropic google-genai sentence-transformers
     export ANTHROPIC_API_KEY=...    # or GEMINI_API_KEY=... with --judge gemini
     # fully local: --embedder ollama --judge ollama  (needs `ollama serve` + models pulled)
 
-    python compliance_rag_baseline.py \
-        --clauses npr-7150-2d-requirements__1_.csv \
-        --benchmark npr7150_ground_truth_benchmark_-_npr7150_ground_truth_benchmark_csv.csv \
+    python scripts/compliance_rag_baseline.py \
+        --clauses data/npr-7150-2d-requirements.csv \
+        --benchmark data/npr7150_ground_truth_benchmark.csv \
         --embedder sbert --judge claude --k 5
 
     # offline smoke test (no API key / no model download):
-    python compliance_rag_baseline.py ... --embedder tfidf --judge heuristic
+    python scripts/compliance_rag_baseline.py ... --embedder tfidf --judge heuristic
 
 Outputs (in --out, default ./out):
     predictions.csv   one row per benchmark requirement (gold vs predicted, cited clause, rationale)

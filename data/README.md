@@ -20,3 +20,9 @@ Official sources:
 - NASA SWEHB full text: <https://swehb.nasa.gov/spaces/SITE/pages/123601159/NPR%2B7150.2D>
 - NASA Langley PDF mirror: <https://explorers.larc.nasa.gov/APSMEX26/SMEX/pdf_files/NASA21_NPR_7150_2D.pdf>
 - NODIS record: <https://nodis3.gsfc.nasa.gov/displayDir.cfm?c=7150&s=2D&t=NPR>
+
+Benchmark:
+
+- `npr7150_ground_truth_benchmark.csv` — human-labeled requirement/clause pairs
+  used by the October baseline. Renamed from the duplicated upload filename;
+  its contents are unchanged.

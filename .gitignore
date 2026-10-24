@@ -16,3 +16,7 @@ chroma_db/
 
 # Local environment
 .env
+
+# Local evaluation runs; published October results are tracked separately
+out/
+results/runs/
