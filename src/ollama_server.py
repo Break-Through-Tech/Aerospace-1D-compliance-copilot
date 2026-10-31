@@ -2,7 +2,7 @@ import subprocess
 import time
 import requests
 
-from src.config import OLLAMA_HOST, EMBEDDING_MODEL
+from src.config import OLLAMA_HOST, EMBEDDING_MODEL, GENERATION_MODEL
 
 
 def ollama_is_ready():
@@ -45,7 +45,7 @@ def start_ollama_server():
 
 def load_models(model_names=None):
     if model_names is None:
-        model_names = (EMBEDDING_MODEL,)
+        model_names = (EMBEDDING_MODEL, GENERATION_MODEL)
 
     if not ollama_is_ready():
         raise RuntimeError("Ollama server is not running.")
