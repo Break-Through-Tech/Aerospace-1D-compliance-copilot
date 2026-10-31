@@ -54,3 +54,19 @@ class AuditVerdict(BaseModel):
         if self.verdict != "Meets" and not self.missing_elements:
             raise ValueError("Partial/Gap must list at least one missing element")
         return self
+
+
+class AuditRecord(BaseModel):
+    """Result of processing one requirement through retrieval and auditing.
+
+    ``grounded`` records whether the verdict's cited clause ID appeared in the
+    retrieved clause IDs. This membership check does not verify that ``evidence``
+    is an exact excerpt from that clause; ``audit_requirement`` performs that check.
+    """
+
+    requirement_id: str
+    requirement_text: str
+    retrieved_clause_ids: list[str]
+    verdict: AuditVerdict | None = None
+    grounded: bool = False
+    error: str | None = None
