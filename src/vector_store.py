@@ -29,4 +29,7 @@ def load_vector_store():
         create_collection_if_not_exists=False
     )
 
+    if not vector_store.get(include=[])["ids"]:
+        raise ValueError("Vector store is empty. Rebuild the index.")
+
     return vector_store
