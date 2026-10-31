@@ -72,9 +72,11 @@ def create_documents(df):
                 metadata={
                     "swe_id": str(row["swe_id"]),
                     "clause": str(row["clause"]),
+                    "requirement": str(row["requirement"]),
                     "chapter_title": str(row["chapter_title"]),
                     "section_title": str(row["section_title"]),
-                    "source": "NASA NPR 7150.2D",
+                    "source": str(row["source_document"]),
+                    "source_url": str(row["source_url"]),
                 },
             )
         )
