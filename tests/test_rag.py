@@ -51,6 +51,21 @@ def test_audit_returns_grounded_verdict(clause_data, verdict_data):
     assert result == verdict
 
 
+def test_audit_creates_default_client_with_requested_model(monkeypatch, clause_data, verdict_data):
+    client = Mock()
+    verdict = AuditVerdict.model_validate(verdict_data)
+    client.with_structured_output.return_value.invoke.return_value = verdict
+    make_client = Mock(return_value=client)
+    monkeypatch.setattr(rag, "create_audit_client", make_client)
+
+    result = rag.audit_requirement(
+        "Maintain requirements", [Clause.model_validate(clause_data)], model="custom-model",
+    )
+
+    make_client.assert_called_once_with(model="custom-model")
+    assert result == verdict
+
+
 @pytest.mark.parametrize("clause_id,evidence,error", [
     ("999.999", "document", "Cited clause"),
     ("4.1.2", "invented quotation", "exact excerpt"),

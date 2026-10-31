@@ -63,32 +63,25 @@ def evaluate(
     if set(record_by_id) != set(benchmark_by_id):
         raise ValueError("Benchmark and audit record requirement IDs must match exactly")
 
-    # Build the scored rows in benchmark order after looking each record up by ID.
+    # Align once by ID, then build each scored column in benchmark order.
     df = benchmark.copy().reset_index(drop=True)
     df["requirement_id"] = df["requirement_id"].astype(str)
-    df["pred_verdict"] = "INVALID"
-    df["pred_clause"] = ""
-    df["retrieved"] = ""
-    df["hit_at_1"] = False
-    df["hit_at_k"] = False
-    df["citation_member"] = False
-    df["correct"] = False
+    ordered_records = [record_by_id[req_id] for req_id in df["requirement_id"]]
+    for record, text in zip(ordered_records, df["requirement_text"]):
+        if record.requirement_text != text:
+            raise ValueError(f"Requirement text mismatch: {record.requirement_id}")
 
-    for index, row in df.iterrows():
-        req_id = row["requirement_id"]
-        record = record_by_id[req_id]
-        if record.requirement_text != row["requirement_text"]:
-            raise ValueError(f"Requirement text mismatch: {req_id}")
-        retrieved = record.retrieved_clause_ids
-        gold_clause = str(row["clause_id"])
-        df.at[index, "retrieved"] = ",".join(retrieved)
-        df.at[index, "hit_at_1"] = bool(retrieved and retrieved[0] == gold_clause)
-        df.at[index, "hit_at_k"] = gold_clause in retrieved[:k]
-        if record.verdict is not None:
-            df.at[index, "pred_verdict"] = record.verdict.verdict
-            df.at[index, "pred_clause"] = record.verdict.clause_id
-            df.at[index, "citation_member"] = record.verdict.clause_id in retrieved
-        df.at[index, "correct"] = df.at[index, "pred_verdict"] == row["label"]
+    df["pred_verdict"] = [r.verdict.verdict if r.verdict else "INVALID" for r in ordered_records]
+    df["pred_clause"] = [r.verdict.clause_id if r.verdict else "" for r in ordered_records]
+    retrieved_ids = [r.retrieved_clause_ids for r in ordered_records]
+    gold_clauses = df["clause_id"].astype(str)
+    df["retrieved"] = [",".join(ids) for ids in retrieved_ids]
+    df["hit_at_1"] = [bool(ids and ids[0] == gold) for ids, gold in zip(retrieved_ids, gold_clauses)]
+    df["hit_at_k"] = [gold in ids[:k] for ids, gold in zip(retrieved_ids, gold_clauses)]
+    df["citation_member"] = [
+        bool(r.verdict and r.verdict.clause_id in r.retrieved_clause_ids) for r in ordered_records
+    ]
+    df["correct"] = df["pred_verdict"] == df["label"]
 
     matrix = pd.crosstab(df["label"], df["pred_verdict"])
     matrix = matrix.reindex(index=LABELS, columns=PREDICTION_LABELS, fill_value=0)
@@ -102,14 +95,8 @@ def evaluate(
         fn = int(matrix.loc[label, :].sum()) - tp
         per_class[label] = prf(tp, fp, fn)
 
-    gold_gap = df["label"] == "Gap"
-    pred_gap = df["pred_verdict"] == "Gap"
     gold_noncompliance = df["label"].isin(("Partial", "Gap"))
     pred_noncompliance = df["pred_verdict"].isin(("Partial", "Gap"))
-    gap_detection = prf(
-        int((gold_gap & pred_gap).sum()), int((~gold_gap & pred_gap).sum()),
-        int((gold_gap & ~pred_gap).sum()),
-    )
     noncompliance_detection = prf(
         int((gold_noncompliance & pred_noncompliance).sum()),
         int((~gold_noncompliance & pred_noncompliance).sum()),
@@ -117,7 +104,9 @@ def evaluate(
     )
 
     n = len(df)
-    valid_count = int((df["pred_verdict"] != "INVALID").sum())
+    valid = df["pred_verdict"] != "INVALID"
+    valid_count = int(valid.sum())
+    accuracy = round(float(df["correct"].mean()), 4)
     metrics = {
         "n": n,
         "k": k,
@@ -125,16 +114,16 @@ def evaluate(
             "hit_at_1": round(float(df["hit_at_1"].mean()), 4),
             f"hit_at_{k}": round(float(df["hit_at_k"].mean()), 4),
         },
-        "verdict_accuracy": round(float(df["correct"].mean()), 4),
-        "accuracy": round(float(df["correct"].mean()), 4),
-        "gap_detection": gap_detection,
+        "verdict_accuracy": accuracy,
+        "accuracy": accuracy,
+        "gap_detection": per_class["Gap"].copy(),
         "noncompliance_detection_gap_or_partial": noncompliance_detection,
         "per_class": per_class,
         "macro_f1": round(sum(score["f1"] for score in per_class.values()) / len(LABELS), 4),
-        "citation_groundedness": round(float(df.loc[df["pred_verdict"] != "INVALID", "citation_member"].mean()), 4)
+        "citation_groundedness": round(float(df.loc[valid, "citation_member"].mean()), 4)
         if valid_count else None,
         "citation_groundedness_n": valid_count,
-        "cited_gold_clause_rate": round(float((df["pred_clause"] == df["clause_id"].astype(str)).mean()), 4),
+        "cited_gold_clause_rate": round(float((df["pred_clause"] == gold_clauses).mean()), 4),
         "schema_valid_rate": round(valid_count / n, 4),
         "confusion_matrix": matrix.to_dict(orient="index"),
     }

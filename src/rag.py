@@ -33,6 +33,18 @@ requirement text. Explain the missing elements and verdict in the rationale.
 """
 
 
+def create_audit_client(model: str = GENERATION_MODEL) -> ChatOllama:
+    """Create an Ollama client with the shared compliance audit settings."""
+    return ChatOllama(
+        model=model,
+        base_url=OLLAMA_HOST,
+        temperature=0,
+        num_ctx=4096,
+        num_predict=600,
+        reasoning=False,
+    )
+
+
 def retrieve_clauses(
     requirement_text: str, vector_store: Chroma, *, k: int = 5
 ) -> list[Clause]:
@@ -86,14 +98,7 @@ def audit_requirement(
     """
     prompt = build_user_prompt(requirement_text, clauses)
     if client is None:
-        client = ChatOllama(
-            model=model,
-            base_url=OLLAMA_HOST,
-            temperature=0,
-            num_ctx=4096,
-            num_predict=600,
-            reasoning=False,
-        )
+        client = create_audit_client(model=model)
     structured_client = client.with_structured_output(
         AuditVerdict, method="json_schema"
     )
