@@ -9,11 +9,13 @@ citation grounding, and evaluates against a human-labeled benchmark.
 
 | Path | Contents |
 | --- | --- |
-| `scripts/compliance_rag_baseline.py` | October baseline CLI and evaluation pipeline |
+| `scripts/compliance_rag_baseline.py` | Compatible CLI entry point for the modular baseline |
+| `scripts/compliance_copilot_october_ollama.py` | Local Python conversion of the Ollama notebook for VS Code |
 | `notebooks/compliance_copilot_october_ollama.ipynb` | Colab workflow with Ollama setup and file uploads |
 | `results/october/` | Original v2 archive and extracted published outputs |
 | `data/` | NASA source documents, 130 clauses, and ground-truth benchmark |
-| `src/` | Earlier preprocessing and persistent vector-index utilities |
+| `src/compliance_rag/` | Schemas, data, embeddings, retrieval, judges, caching, pipeline, evaluation, reporting, CLI |
+| `src/*.py` | Earlier preprocessing and persistent vector-index utilities |
 | `scripts/build_index.py` | Earlier persistent-index builder |
 | `notebooks/01_preprocessing.ipynb`, `02_vector_indexing.ipynb` | Earlier data and indexing notebooks |
 | `docs/coach/` | Coach events and office-hours notes |
@@ -61,17 +63,91 @@ require `sentence-transformers`, `anthropic`, and `google-genai`, respectively.
 See the CLI's `--help` for provider and model options. The earlier persistent
 indexing utilities use `requirements.txt` / `pyproject.toml`.
 
+## Run the converted notebook in VS Code
+
+Open this repository folder in VS Code and select `.venv/bin/python` with
+**Python: Select Interpreter**. Install `requirements-october.txt` as above,
+install Ollama separately, and run `ollama serve` in a terminal. Then run:
+
+```bash
+python scripts/compliance_copilot_october_ollama.py --pull-models
+```
+
+This defaults to `nomic-embed-text`, `qwen3:4b`, top-k 5, and a five-row trial.
+It discovers CSVs in the repository's `data/` directory, combines benchmark
+files, removes duplicate requirement/clause pairs, assigns sequential IDs, and
+writes `combined_benchmark.csv` with the normal output artifacts to
+`results/runs/october-local/`. Defaults resolve from the script location, so it
+also runs using VS Code's Run Python File action. It uses an existing Ollama
+server; `--pull-models` downloads models only when explicitly requested.
+
+For the full benchmark with a ZIP archive:
+
+```bash
+python scripts/compliance_copilot_october_ollama.py --limit 0 --archive \
+  --out results/runs/october-full
+```
+
+Use `--clauses PATH --benchmark PATH [PATH ...]` to select inputs explicitly,
+`--data-dir` to discover another folder, `--host` for another Ollama server,
+and `--model` / `--embedding-model` to change models. `--cache` selects a
+persistent cache location. Use a fresh output directory and cache when changing
+input data, embedding models, or experiment settings. Unlike the general
+baseline CLI, this notebook conversion uses `--limit 0` for all rows.
+Reports are local files; no Colab uploads, Drive mounts, or notebook magics
+are required. Open `report.md` with VS Code's Markdown preview.
+
+## Working on the modules
+
+The baseline CLI composes these components in `src/compliance_rag/`:
+
+| Module | Responsibility |
+| --- | --- |
+| `schemas.py` | Clause, audit verdict, record, and validation rules |
+| `data.py` | CSV loading, notebook-style discovery and deduplication |
+| `embeddings.py`, `retrieval.py` | Embedding providers and in-memory clause search |
+| `prompts.py`, `judges/` | Shared prompt and separate Claude, Gemini, Ollama, heuristic judges |
+| `cache.py`, `pipeline.py` | JSONL resume cache and retrieve/judge/grounding workflow |
+| `evaluation.py`, `reporting.py` | Metrics and JSON/CSV/Markdown artifacts |
+| `cli.py` | Argument parsing, provider selection, and orchestration |
+
+Import components directly, for example:
+
+```python
+from src.compliance_rag.data import load_clauses
+from src.compliance_rag.retrieval import ClauseIndex
+from src.compliance_rag.pipeline import run_pipeline
+```
+
+The original `scripts/compliance_rag_baseline.py` command and its Python exports
+remain available. The new RAG package does not import `src.config` or require its `.env`
+variables. Provider SDKs are imported when their provider is selected.
+
+For an installed package, `python -m pip install -e '.[october]'` installs the
+existing indexing dependencies plus the baseline dependencies and adds the
+`compliance-rag` command. Optional extras are `sbert`, `claude`, `gemini`, and
+`faiss`. The lean local workflow only needs `requirements-october.txt`.
+
+Run checks with:
+
+```bash
+python -m pip install pytest
+python -m pytest
+```
+
+For November, a tool can call `ClauseIndex.search` for retrieval, a judge's
+`judge(requirement_text, hits)` for checking, and consume `AuditRecord` for gap
+logging and reports. This refactor retains the October deterministic pipeline;
+the agent loop and dedicated November tools remain upcoming work. Existing
+embedding batching, provider retry behavior, cache resume, and report formats
+are retained.
+
 ## Run in Colab
 
-Open [the October notebook](notebooks/compliance_copilot_october_ollama.ipynb)
-in Colab and run its cells in order. At step 3, upload:
-
-- `scripts/compliance_rag_baseline.py`
-- `data/npr-7150-2d-requirements.csv`
-- `data/npr7150_ground_truth_benchmark.csv`
-
-The notebook copies the uploaded script into Colab's import directory. The
-notebook's `/content` paths refer to the Colab runtime, not this repository.
+The [October notebook](notebooks/compliance_copilot_october_ollama.ipynb) remains
+an experiment workflow. Its repository-loading cell now loads the modularization
+branch, including `src`, rather than uploading a standalone baseline file.
+The Python script above is the recommended team workflow for VS Code.
 
 ## Published October results
 

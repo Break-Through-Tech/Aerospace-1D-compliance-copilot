@@ -8,8 +8,18 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dynamic = ["dependencies"]
 
-[tool.setuptools]
-packages = ["src"]
+[tool.setuptools.packages.find]
+include = ["src", "src.*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+october = ["numpy", "pandas", "pydantic>=2,<3", "ollama>=0.6.2", "scikit-learn", "tabulate"]
+sbert = ["sentence-transformers"]
+claude = ["anthropic"]
+gemini = ["google-genai"]
+faiss = ["faiss-cpu"]
+
+[project.scripts]
+compliance-rag = "src.compliance_rag.cli:main_cli"
