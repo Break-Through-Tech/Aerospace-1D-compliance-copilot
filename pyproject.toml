@@ -9,7 +9,7 @@ requires-python = ">=3.10"
 dynamic = ["dependencies"]
 
 [tool.setuptools.packages.find]
-include = ["src", "src.*"]
+include = ["src", "src.*", "colab", "colab.*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
@@ -22,4 +22,4 @@ gemini = ["google-genai"]
 faiss = ["faiss-cpu"]
 
 [project.scripts]
-compliance-rag = "src.compliance_rag.cli:main_cli"
+compliance-rag = "colab.compliance_rag.cli:main_cli"

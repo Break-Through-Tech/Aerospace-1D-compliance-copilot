@@ -86,7 +86,7 @@ def main():
     parser.add_argument("--out", default="results/issue13_saved_evaluation")
     args = parser.parse_args()
     out = Path(args.out).resolve()
-    published = Path(__file__).resolve().parents[1] / "results" / "october"
+    published = Path(__file__).resolve().parents[2] / "results" / "october"
     if out == published or published in out.parents:
         parser.error("Outputs must be outside published results/october")
     inputs = [Path(args.benchmark).resolve(), Path(args.predictions).resolve()]
@@ -131,7 +131,7 @@ def main():
               "Only one reference clause is labeled per example. These are reference-hit rates, not exhaustive retrieval precision/recall.",
               "These scores describe this saved benchmark, not performance on unseen requirements.",
               "", "## Reproduce", "", "```bash",
-              f'python scripts/evaluate_saved_predictions.py --benchmark "{args.benchmark}" --predictions "{args.predictions}" --out "{args.out}"',
+              f'python colab/scripts/evaluate_saved_predictions.py --benchmark "{args.benchmark}" --predictions "{args.predictions}" --out "{args.out}"',
               "```", ""]
     (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
     print(f"Evaluated {metrics['n']} examples; macro F1={metrics['macro_f1']:.6f}; outputs: {out}")

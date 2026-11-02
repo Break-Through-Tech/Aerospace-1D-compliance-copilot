@@ -13,11 +13,11 @@ import shutil
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.compliance_rag.cli import main as run_baseline
-from src.compliance_rag.data import discover_csvs, combine_benchmarks
+from colab.compliance_rag.cli import main as run_baseline
+from colab.compliance_rag.data import discover_csvs, combine_benchmarks
 
 
 def main(argv=None):

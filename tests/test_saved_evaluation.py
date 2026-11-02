@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("saved_eval", ROOT / "scripts/evaluate_saved_predictions.py")
+spec = importlib.util.spec_from_file_location("saved_eval", ROOT / "colab/scripts/evaluate_saved_predictions.py")
 evaluation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(evaluation)
 

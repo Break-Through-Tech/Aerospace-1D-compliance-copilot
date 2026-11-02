@@ -8,19 +8,19 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from src.compliance_rag.data import load_clauses, load_benchmark, discover_csvs, combine_benchmarks
-from src.compliance_rag.embeddings import TfidfEmbedder
-from src.compliance_rag.retrieval import ClauseIndex
-from src.compliance_rag.judges import HeuristicJudge, OllamaJudge
-from src.compliance_rag.pipeline import run_pipeline
-from src.compliance_rag.evaluation import evaluate
-from src.compliance_rag.schemas import AuditVerdict
+from colab.compliance_rag.data import load_clauses, load_benchmark, discover_csvs, combine_benchmarks
+from colab.compliance_rag.embeddings import TfidfEmbedder
+from colab.compliance_rag.retrieval import ClauseIndex
+from colab.compliance_rag.judges import HeuristicJudge, OllamaJudge
+from colab.compliance_rag.pipeline import run_pipeline
+from colab.compliance_rag.evaluation import evaluate
+from colab.compliance_rag.schemas import AuditVerdict
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_script(name):
-    spec = importlib.util.spec_from_file_location(name, ROOT / 'scripts' / f'{name}.py')
+    spec = importlib.util.spec_from_file_location(name, ROOT / 'colab' / 'scripts' / f'{name}.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -97,3 +97,21 @@ def test_nonpositive_retrieval_k_rejected(tmp_path):
     script = load_script('compliance_rag_baseline')
     with pytest.raises(SystemExit):
         script.main(['--clauses', 'unused', '--benchmark', 'unused', '--k', '0'])
+
+
+def test_local_conversion_finds_shared_data_outside_repository(tmp_path, monkeypatch):
+    script = load_script('compliance_copilot_october_ollama')
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / 'run'
+
+    def baseline(args):
+        assert Path(args[args.index('--clauses') + 1]).parent == ROOT / 'data'
+        assert Path(args[args.index('--benchmark') + 1]) == out / 'combined_benchmark.csv'
+        (out / 'report.md').write_text('Report')
+        return pd.DataFrame(), {}
+
+    with patch('ollama.Client'), patch.object(script, 'run_baseline', side_effect=baseline), \
+            patch.object(script, 'discover_csvs', wraps=discover_csvs) as discover:
+        script.main(['--out', str(out)])
+    discover.assert_called_once_with(ROOT / 'data')
+    assert script.ROOT == ROOT

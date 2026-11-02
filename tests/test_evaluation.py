@@ -127,8 +127,8 @@ def test_hit_at_k_excludes_clauses_beyond_k():
 ])
 def test_metrics_match_october_on_equivalent_records(predictions):
     """Compare actual evaluators; convert only the differing record schemas."""
-    from src.compliance_rag.evaluation import evaluate as evaluate_october
-    from src.compliance_rag.schemas import AuditRecord as OctoberRecord
+    from colab.compliance_rag.evaluation import evaluate as evaluate_october
+    from colab.compliance_rag.schemas import AuditRecord as OctoberRecord
 
     records = [
         record("r1", "Req one", predictions[0], "1.1", ["x", "1.1"]),
