@@ -8,8 +8,7 @@ from ollama import ResponseError
 
 from src.config import GENERATION_MODEL, PROJECT_ROOT
 from src.evaluation import evaluate
-from src.pipeline import run_audits
-from src.rag import create_audit_client
+from src.rag import create_audit_client, run_audits
 from src.vector_store import load_vector_store
 
 

@@ -1,12 +1,15 @@
-"""Retrieve NASA clauses and audit one requirement against a selected clause."""
+"""Retrieve NASA clauses and audit individual requirements or ordered batches."""
 
 import json
+from collections.abc import Iterable
 
 from langchain_chroma import Chroma
+from langchain_core.exceptions import OutputParserException
 from langchain_ollama import ChatOllama
+from pydantic import ValidationError
 
 from src.config import OLLAMA_HOST, GENERATION_MODEL
-from src.schemas import AuditVerdict, Clause
+from src.schemas import AuditRecord, AuditVerdict, Clause
 
 
 SYSTEM_PROMPT = """You are a compliance auditor checking a software requirement against NASA NPR 7150.2D.
@@ -91,7 +94,9 @@ def audit_requirement(
 ) -> AuditVerdict:
     """Audit already retrieved clauses; return one grounded verdict.
 
-    Schema, inference, and citation errors propagate to the caller.
+    Retry schema and citation failures once, with corrective feedback. After two
+    invalid outputs, raise the last validation error. Service, configuration, and
+    unexpected errors propagate immediately.
     Grounding proves evidence provenance, not that the judgment is correct.
     An injected ChatOllama instance supplies its own model and generation settings;
     model configures the default instance only.
@@ -106,10 +111,79 @@ def audit_requirement(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    verdict = structured_client.invoke(messages)
-    selected_clauses = [clause for clause in clauses if clause.clause == verdict.clause_id]
-    if not selected_clauses:
-        raise ValueError("Cited clause is not in the retrieved set")
-    if not any(verdict.evidence in clause.requirement for clause in selected_clauses):
-        raise ValueError("Evidence must be an exact excerpt of the selected clause's requirement")
-    return verdict
+    for attempt in range(2):
+        try:
+            verdict = structured_client.invoke(messages)
+        except (ValidationError, OutputParserException) as exc:
+            error = exc
+            previous_output = exc.llm_output if isinstance(exc, OutputParserException) else None
+        else:
+            selected_clauses = [clause for clause in clauses if clause.clause == verdict.clause_id]
+            if not selected_clauses:
+                error = ValueError("Cited clause is not in the retrieved set")
+            elif not any(verdict.evidence in clause.requirement for clause in selected_clauses):
+                error = ValueError("Evidence must be an exact excerpt of the selected clause's requirement")
+            else:
+                return verdict
+            previous_output = verdict.model_dump_json()
+
+        if attempt == 1:
+            raise error
+        if previous_output:
+            messages = [*messages, {"role": "assistant", "content": previous_output}]
+        # Keep the original context and explain the failure. No broad automatic
+        # retry wrapper: service/configuration/programming errors must escape.
+        messages = [*messages, {
+            "role": "user",
+            "content": (
+                f"The previous response was invalid: {error}\n"
+                f"Allowed clause_id values: {[clause.clause for clause in clauses]}. "
+                "Return corrected JSON matching the supplied schema. Copy evidence "
+                "exactly from the selected clause's requirement text."
+            ),
+        }]
+
+
+def run_audits(
+    requirements: Iterable[tuple[str, str]],
+    vector_store: Chroma,
+    client: ChatOllama,
+    *,
+    k: int,
+) -> list[AuditRecord]:
+    """Audit ordered ``(requirement_id, requirement_text)`` pairs.
+
+    Reuse the supplied store and client and return records in input order.
+    Model output and citation failures affect one record. Retrieval failures
+    (including invalid stored metadata), service failures, and unexpected errors
+    propagate to the caller. No benchmark labels or evaluation data are needed.
+    """
+    records = []
+    for requirement_id, requirement_text in requirements:
+        clauses = retrieve_clauses(requirement_text, vector_store, k=k)
+        record = AuditRecord(
+            requirement_id=str(requirement_id),
+            requirement_text=requirement_text,
+            retrieved_clause_ids=[clause.clause for clause in clauses],
+        )
+        if not clauses:
+            record.error = "Retrieval returned no clauses"
+        else:
+            try:
+                verdict = audit_requirement(requirement_text, clauses, client=client)
+            except (ValidationError, OutputParserException) as exc:
+                record.error = f"Invalid audit output: {exc}"
+            except ValueError as exc:
+                # The current audit API uses ValueError for these two citation checks.
+                # Other ValueErrors may indicate configuration or programming errors.
+                if str(exc) not in {
+                    "Cited clause is not in the retrieved set",
+                    "Evidence must be an exact excerpt of the selected clause's requirement",
+                }:
+                    raise
+                record.error = f"Citation validation failed: {exc}"
+            else:
+                record.verdict = verdict
+                record.grounded = verdict.clause_id in record.retrieved_clause_ids
+        records.append(record)
+    return records

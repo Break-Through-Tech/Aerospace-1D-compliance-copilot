@@ -83,3 +83,115 @@ def test_audit_rejects_ungrounded_verdicts(
     })
     with pytest.raises(ValueError, match=error):
         rag.audit_requirement("Maintain requirements", clauses, client=client)
+
+
+@pytest.fixture(params=["json", "schema", "validation", "citation", "evidence"])
+def invalid_output(request, verdict_data):
+    """Use the actual LangChain parser for malformed JSON and schema failures."""
+    from langchain_core.output_parsers import PydanticOutputParser
+
+    if request.param == "validation":
+        with pytest.raises(ValidationError) as caught:
+            AuditVerdict.model_validate({})
+        return caught.value
+    if request.param in {"json", "schema"}:
+        from langchain_core.exceptions import OutputParserException
+
+        parser = PydanticOutputParser(pydantic_object=AuditVerdict)
+        try:
+            parser.parse("not JSON" if request.param == "json" else "{}")
+        except OutputParserException as exc:
+            return exc
+        pytest.fail("The parser should reject invalid output")
+    if request.param == "citation":
+        return AuditVerdict.model_validate({**verdict_data, "clause_id": "999.999"})
+    return AuditVerdict.model_validate({**verdict_data, "evidence": "invented quotation"})
+
+
+def test_invalid_output_is_corrected_with_feedback(clause_data, verdict_data, invalid_output):
+    client = Mock()
+    invoke = client.with_structured_output.return_value.invoke
+    corrected = AuditVerdict.model_validate(verdict_data)
+    invoke.side_effect = [invalid_output, corrected]
+
+    result = rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
+
+    assert result == corrected
+    assert invoke.call_count == 2
+    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    original, retry = [call.args[0] for call in invoke.call_args_list]
+    assert len(original) == 2
+    assert retry[:2] == original
+    feedback = retry[-1]["content"]
+    assert retry[-1]["role"] == "user"
+    assert "previous response was invalid" in feedback
+    assert "4.1.2" in feedback and "Copy evidence exactly" in feedback
+    if isinstance(invalid_output, Exception):
+        assert str(invalid_output) in feedback
+    elif invalid_output.clause_id == "999.999":
+        assert "Cited clause" in feedback
+    else:
+        assert "exact excerpt" in feedback
+    if isinstance(invalid_output, AuditVerdict):
+        assert retry[-2] == {"role": "assistant", "content": invalid_output.model_dump_json()}
+
+
+def test_repeated_invalid_output_raises_last_error_after_two_attempts(clause_data, invalid_output):
+    from langchain_core.exceptions import OutputParserException
+
+    client = Mock()
+    invoke = client.with_structured_output.return_value.invoke
+    invoke.side_effect = [invalid_output, invalid_output]
+
+    with pytest.raises((ValidationError, OutputParserException, ValueError)) as caught:
+        rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
+
+    assert invoke.call_count == 2
+    if isinstance(invalid_output, Exception):
+        assert caught.value is invalid_output
+
+
+@pytest.mark.parametrize("failure", [
+    ConnectionError("Ollama unavailable"),
+    ValueError("Invalid model configuration"),
+    RuntimeError("Unexpected programming error"),
+    TypeError("Unexpected response handling error"),
+])
+def test_non_output_errors_propagate_without_retry(clause_data, failure):
+    client = Mock()
+    invoke = client.with_structured_output.return_value.invoke
+    invoke.side_effect = failure
+
+    with pytest.raises(type(failure)) as caught:
+        rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
+
+    assert caught.value is failure
+    invoke.assert_called_once()
+
+
+def test_service_failure_during_correction_stops_immediately(clause_data):
+    from langchain_core.exceptions import OutputParserException
+    from ollama import ResponseError
+
+    client = Mock()
+    invoke = client.with_structured_output.return_value.invoke
+    failure = ResponseError("Model unavailable", status_code=404)
+    invoke.side_effect = [OutputParserException("Invalid JSON"), failure]
+
+    with pytest.raises(ResponseError) as caught:
+        rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
+
+    assert caught.value is failure
+    assert invoke.call_count == 2
+
+
+def test_structured_client_configuration_error_propagates(clause_data):
+    client = Mock()
+    failure = ValueError("Unsupported structured output configuration")
+    client.with_structured_output.side_effect = failure
+
+    with pytest.raises(ValueError) as caught:
+        rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
+
+    assert caught.value is failure
+    client.with_structured_output.assert_called_once()
