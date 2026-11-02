@@ -36,6 +36,10 @@ requirement text. Explain the missing elements and verdict in the rationale.
 """
 
 
+class CitationValidationError(ValueError):
+    """The verdict cites an unretrieved clause or evidence outside its text."""
+
+
 def create_audit_client(model: str = GENERATION_MODEL) -> ChatOllama:
     """Create an Ollama client with the shared compliance audit settings."""
     return ChatOllama(
@@ -120,9 +124,9 @@ def audit_requirement(
         else:
             selected_clauses = [clause for clause in clauses if clause.clause == verdict.clause_id]
             if not selected_clauses:
-                error = ValueError("Cited clause is not in the retrieved set")
+                error = CitationValidationError("Cited clause is not in the retrieved set")
             elif not any(verdict.evidence in clause.requirement for clause in selected_clauses):
-                error = ValueError("Evidence must be an exact excerpt of the selected clause's requirement")
+                error = CitationValidationError("Evidence must be an exact excerpt of the selected clause's requirement")
             else:
                 return verdict
             previous_output = verdict.model_dump_json()
@@ -173,14 +177,7 @@ def run_audits(
                 verdict = audit_requirement(requirement_text, clauses, client=client)
             except (ValidationError, OutputParserException) as exc:
                 record.error = f"Invalid audit output: {exc}"
-            except ValueError as exc:
-                # The current audit API uses ValueError for these two citation checks.
-                # Other ValueErrors may indicate configuration or programming errors.
-                if str(exc) not in {
-                    "Cited clause is not in the retrieved set",
-                    "Evidence must be an exact excerpt of the selected clause's requirement",
-                }:
-                    raise
+            except CitationValidationError as exc:
                 record.error = f"Citation validation failed: {exc}"
             else:
                 record.verdict = verdict

@@ -81,8 +81,9 @@ def test_audit_rejects_ungrounded_verdicts(
     client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate({
         **verdict_data, "clause_id": clause_id, "evidence": evidence,
     })
-    with pytest.raises(ValueError, match=error):
+    with pytest.raises(rag.CitationValidationError, match=error):
         rag.audit_requirement("Maintain requirements", clauses, client=client)
+    assert client.with_structured_output.return_value.invoke.call_count == 2
 
 
 @pytest.fixture(params=["json", "schema", "validation", "citation", "evidence"])
@@ -143,7 +144,7 @@ def test_repeated_invalid_output_raises_last_error_after_two_attempts(clause_dat
     invoke = client.with_structured_output.return_value.invoke
     invoke.side_effect = [invalid_output, invalid_output]
 
-    with pytest.raises((ValidationError, OutputParserException, ValueError)) as caught:
+    with pytest.raises((ValidationError, OutputParserException, rag.CitationValidationError)) as caught:
         rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
 
     assert invoke.call_count == 2
