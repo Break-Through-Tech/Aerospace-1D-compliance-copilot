@@ -7,3 +7,6 @@ pytest
 pydantic
 python-dotenv
 ollama
+
+# Used directly by the existing src/ollama_server.py helper
+requests
