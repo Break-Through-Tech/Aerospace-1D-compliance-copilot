@@ -37,7 +37,20 @@ python -m scripts.evaluate_rag --limit 5
 
 Index building and evaluation require Ollama; evaluation uses the existing Chroma
 index. Omit `--limit` for the full benchmark. The canonical implementation is
-independent of the October package. Canonical caching and reporting are future work.
+independent of the October package. To save completed audits and resume a later run:
+
+```bash
+python -m scripts.evaluate_rag --cache results/audit_cache.jsonl
+```
+
+The optional JSONL cache reuses only successful, grounded audits with compatible
+requirement text, model settings, prompts, validation, and index contents. Each
+success is saved immediately; failed requirements are retried next time. A summary
+reports reused and newly audited records. Without `--cache`, every requirement is
+audited normally. Use one writer per cache file and keep the index fixed during a
+batch. Use fixed model versions: replacing a model under the same Ollama tag is
+not detected. Cache checking reads the stored index once per batch, including its
+vectors; it does not rebuild the index. Reporting remains future work.
 
 ## Preserved October baseline
 

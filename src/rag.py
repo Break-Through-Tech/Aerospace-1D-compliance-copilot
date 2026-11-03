@@ -1,7 +1,10 @@
 """Retrieve NASA clauses and audit individual requirements or ordered batches."""
 
 import json
+import inspect
 from collections.abc import Iterable
+from importlib.metadata import version
+from pathlib import Path
 
 from langchain_chroma import Chroma
 from langchain_core.exceptions import OutputParserException
@@ -10,6 +13,7 @@ from pydantic import ValidationError
 
 from src.config import OLLAMA_HOST, GENERATION_MODEL
 from src.schemas import AuditRecord, AuditVerdict, Clause
+from src.cache import append_record, cache_key, client_settings, index_fingerprint, load_cache, successful
 
 
 SYSTEM_PROMPT = """You are a compliance auditor checking a software requirement against NASA NPR 7150.2D.
@@ -154,6 +158,7 @@ def run_audits(
     client: ChatOllama,
     *,
     k: int,
+    cache_path: str | Path | None = None,
 ) -> list[AuditRecord]:
     """Audit ordered ``(requirement_id, requirement_text)`` pairs.
 
@@ -161,9 +166,42 @@ def run_audits(
     Model output and citation failures affect one record. Retrieval failures
     (including invalid stored metadata), service failures, and unexpected errors
     propagate to the caller. No benchmark labels or evaluation data are needed.
+    An optional single-writer JSONL cache saves grounded successes immediately.
+    Keep the index and model versions fixed while a batch is running.
     """
     records = []
+    reused = 0
+    if cache_path is not None:
+        if type(k) is not int or k < 1:
+            raise ValueError("k must be a positive integer")
+        # Source fingerprints cover context formatting and Python validators,
+        # which JSON schemas alone cannot describe. Compute once per batch.
+        configuration = cache_key({
+            "format_version": 1,
+            "generation": client_settings(client),
+            "embedding": client_settings(vector_store.embeddings),
+            "k": k,
+            "system_prompt": SYSTEM_PROMPT,
+            "schemas": [schema.model_json_schema() for schema in (Clause, AuditVerdict, AuditRecord)],
+            "libraries": {package: version(package) for package in (
+                "pydantic", "pydantic-core", "langchain-ollama", "langchain-chroma", "chromadb",
+            )},
+            "implementation": [inspect.getsource(obj) for obj in (
+                build_user_prompt, audit_requirement, retrieve_clauses,
+                Clause, AuditVerdict, AuditRecord,
+            )],
+            "index": index_fingerprint(vector_store),
+        })
+        cached = load_cache(cache_path)
     for requirement_id, requirement_text in requirements:
+        if cache_path is not None:
+            key = cache_key({"configuration": configuration, "requirement": requirement_text})
+            previous = cached.get(key)
+            if previous is not None and previous.requirement_text == requirement_text:
+                # IDs belong to this run, not to the wording's previous use.
+                records.append(previous.model_copy(update={"requirement_id": str(requirement_id)}, deep=True))
+                reused += 1
+                continue
         clauses = retrieve_clauses(requirement_text, vector_store, k=k)
         record = AuditRecord(
             requirement_id=str(requirement_id),
@@ -183,4 +221,9 @@ def run_audits(
                 record.verdict = verdict
                 record.grounded = verdict.clause_id in record.retrieved_clause_ids
         records.append(record)
+        if cache_path is not None and successful(record):
+            append_record(cache_path, key, record)
+            cached[key] = record
+    if cache_path is not None:
+        print(f"Cache: {reused} reused; {len(records) - reused} newly audited (including failed attempts).")
     return records

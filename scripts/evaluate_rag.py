@@ -16,6 +16,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, help="Evaluate only the first N benchmark requirements")
     parser.add_argument("--k", type=int, default=5, help="Number of clauses to retrieve (default: 5)")
+    parser.add_argument("--cache", help="JSONL cache path for resuming completed audits")
     args = parser.parse_args(argv)
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
@@ -36,7 +37,7 @@ def main(argv=None):
         client = create_audit_client()
         requirements = benchmark[["requirement_id", "requirement_text"]].itertuples(index=False, name=None)
         print(f"Auditing {len(benchmark)} requirements...", flush=True)
-        records = run_audits(requirements, vector_store, client, k=args.k)
+        records = run_audits(requirements, vector_store, client, k=args.k, cache_path=args.cache)
     except (ConnectionError, RequestError, ResponseError) as exc:
         raise SystemExit(f"Evaluation stopped: Ollama service failure: {exc}") from exc
 
