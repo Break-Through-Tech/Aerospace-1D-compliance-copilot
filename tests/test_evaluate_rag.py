@@ -111,7 +111,7 @@ def test_invalid_output_fails_before_loading_services(monkeypatch, tmp_path, des
         out.mkdir()
         (out / "report.md").write_text("existing input")
     if destination == "cache-conflict":
-        args += ["--cache", str(out / "metrics.json")]
+        args += ["--cache", str(out / "report.md" / "cache.jsonl")]
     load = Mock()
     monkeypatch.setattr(evaluate_rag, "load_vector_store", load)
     with pytest.raises(SystemExit) as exc:
@@ -124,3 +124,30 @@ def test_invalid_output_fails_before_loading_services(monkeypatch, tmp_path, des
         assert (out / "report.md").read_text() == "existing input"
     if destination == "cache-conflict":
         assert not out.exists()
+
+
+@pytest.mark.parametrize("with_output", [False, True])
+@pytest.mark.parametrize("relative", ["results/october/cache.jsonl", "data/cache.jsonl", "source.py"])
+def test_invalid_cache_fails_before_reading_benchmark_or_loading_services(
+    monkeypatch, tmp_path, with_output, relative,
+):
+    from src import cache
+
+    monkeypatch.setattr(cache, "PROJECT_ROOT", tmp_path)
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b'{"key":')
+    read = Mock()
+    load = Mock()
+    monkeypatch.setattr(evaluate_rag.pd, "read_csv", read)
+    monkeypatch.setattr(evaluate_rag, "load_vector_store", load)
+    args = ["--cache", str(path)]
+    if with_output:
+        args += ["--out", str(tmp_path / "run")]
+    with pytest.raises(SystemExit) as exc:
+        evaluate_rag.main(args)
+    assert exc.value.code == 2
+    read.assert_not_called()
+    load.assert_not_called()
+    assert path.read_bytes() == b'{"key":'
+    assert not (tmp_path / "run").exists()

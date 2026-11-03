@@ -6,6 +6,7 @@ import pandas as pd
 from httpx import RequestError
 from ollama import ResponseError
 
+from src.cache import validate_cache_path
 from src.config import GENERATION_MODEL, PROJECT_ROOT
 from src.evaluation import evaluate
 from src.rag import create_audit_client, run_audits
@@ -24,11 +25,13 @@ def main(argv=None):
         parser.error("--limit must be positive")
     if args.k < 1:
         parser.error("--k must be positive")
-    if args.out is not None:
-        try:
+    try:
+        if args.cache is not None:
+            validate_cache_path(args.cache)
+        if args.out is not None:
             validate_output_directory(args.out, input_paths=[args.cache] if args.cache else [])
-        except ValueError as exc:
-            parser.error(str(exc))
+    except ValueError as exc:
+        parser.error(str(exc))
 
     benchmark = pd.read_csv(
         PROJECT_ROOT / "data" / "npr7150_ground_truth_benchmark.csv",

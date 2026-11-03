@@ -9,6 +9,7 @@ from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
 from src import rag
+from src import cache
 from src.cache import append_record, cache_key, index_fingerprint, load_cache
 from src.schemas import AuditRecord, AuditVerdict
 from src.vector_store import get_embeddings
@@ -235,9 +236,69 @@ def test_unsuccessful_records_not_persisted_or_reused(tmp_path, record, update):
     assert load_cache(path) == {}
 
 
-def test_filesystem_errors_propagate(tmp_path, record):
-    with pytest.raises(IsADirectoryError):
+def test_invalid_directories_and_absent_cache(tmp_path, record):
+    with pytest.raises(ValueError):
         load_cache(tmp_path)
-    with pytest.raises(IsADirectoryError):
+    with pytest.raises(ValueError):
         append_record(tmp_path, "key", record)
     assert load_cache(tmp_path / "absent.jsonl") == {}
+
+
+@pytest.mark.parametrize("relative", [
+    "results/october/cache.jsonl", "results/october/nested/new.jsonl",
+    "data/cache.jsonl", "data/nested/new.jsonl",
+])
+def test_protected_cache_paths_are_rejected_before_repair_or_append(tmp_path, monkeypatch, record, relative):
+    monkeypatch.setattr(cache, "PROJECT_ROOT", tmp_path)
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    original = b'{"key":'
+    path.write_bytes(original)
+    with pytest.raises(ValueError, match="protected"):
+        load_cache(path)
+    with pytest.raises(ValueError, match="protected"):
+        append_record(path, "key", record)
+    assert path.read_bytes() == original
+    path.unlink()
+    with pytest.raises(ValueError, match="protected"):
+        append_record(path, "key", record)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("alias_type", ["file", "directory"])
+def test_symlink_aliases_cannot_bypass_cache_protection(tmp_path, monkeypatch, record, alias_type):
+    monkeypatch.setattr(cache, "PROJECT_ROOT", tmp_path)
+    history = tmp_path / "results/october"
+    history.mkdir(parents=True)
+    published = history / "cache.jsonl"
+    published.write_bytes(b'{"key":')
+    if alias_type == "file":
+        path = tmp_path / "alias.jsonl"
+        path.symlink_to(published)
+    else:
+        alias = tmp_path / "alias"
+        alias.symlink_to(history, target_is_directory=True)
+        path = alias / "cache.jsonl"
+    with pytest.raises(ValueError, match="protected"):
+        load_cache(path)
+    with pytest.raises(ValueError, match="protected"):
+        append_record(path, "key", record)
+    assert published.read_bytes() == b'{"key":'
+
+
+@pytest.mark.parametrize("name", ["benchmark.csv", "report.md", "metrics.json", "source.py", "input.txt"])
+def test_non_cache_files_are_never_repaired_or_appended(tmp_path, record, name):
+    path = tmp_path / name
+    path.write_text("unrelated input without a newline")
+    with pytest.raises(ValueError, match=".jsonl"):
+        load_cache(path)
+    with pytest.raises(ValueError, match=".jsonl"):
+        append_record(path, "key", record)
+    assert path.read_text() == "unrelated input without a newline"
+
+
+def test_cache_destination_cannot_be_a_directory(tmp_path):
+    path = tmp_path / "directory.jsonl"
+    path.mkdir()
+    with pytest.raises(ValueError, match="must be a file"):
+        load_cache(path)

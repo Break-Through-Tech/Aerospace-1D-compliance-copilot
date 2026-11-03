@@ -52,6 +52,10 @@ batch. Use fixed model versions: replacing a model under the same Ollama tag is
 not detected. Cache checking reads the stored index once per batch, including its
 vectors; it does not rebuild the index.
 
+Use a dedicated `.jsonl` file for the cache. Cache loading may repair an interrupted
+final write, so do not point it at an unrelated file. Cache destinations under
+`results/october/` and `data/` are rejected, including symlink aliases.
+
 To save an evaluation report, add `--out` with a run directory:
 
 ```bash
@@ -74,12 +78,30 @@ Existing artifact files are never overwritten: choose a new run name for each re
 including a resumed cached evaluation. Destinations under `results/october/` and
 `data/` are protected, and report files cannot collide with the cache path.
 
+## Known classification limitation
+
+The latest full canonical benchmark with `qwen3:4b` (50 requirements, top-k 5)
+achieved 30% verdict accuracy, 92% retrieval Hit@5, 100% accepted verdicts, and
+0% Meets recall. It predicted `Partial` for 40 requirements and `Gap` for 10,
+including cases where added specificity was incorrectly treated as missing
+compliance. The published October baseline achieved 62% verdict accuracy.
+
+Classification quality remains a separate follow-up from architectural integration.
+An accepted verdict passes schema, citation, and evidence checks; those checks do
+not establish that its compliance judgment is correct. The canonical workflow
+should not be treated as a validated compliance decision system. Full-run outputs
+in `results/runs/` are local, ignored artifacts; the figures above record the known
+limitation for reviewers without requiring those files.
+
 ## Preserved October baseline
 
 See [colab/README.md](colab/README.md) for local and Colab instructions. This
 baseline uses FAISS/NumPy retrieval and retains its original prompts, model
-defaults, judges, validation, caching, evaluation, and reports. Its lean dependency
-file remains at `requirements-october.txt`; `requirements.txt` serves the canonical
+defaults, judges, verdict validation, evaluation, and reports. The module extraction
+added checks for empty/malformed inputs and invalid numeric arguments, and limits
+cache persistence and reuse to grounded verdicts. These safeguards preserve the
+valid-input algorithms; the relocation was not entirely mechanical. Its lean
+dependency file remains at `requirements-october.txt`; `requirements.txt` serves the canonical
 workflow. Installing `python -m pip install -e '.[october]'` includes both workflows
 and provides the October `compliance-rag` console command. Optional October extras
 are `sbert`, `claude`, `gemini`, and `faiss`.

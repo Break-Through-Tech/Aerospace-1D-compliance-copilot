@@ -4,6 +4,10 @@ This is the October Colab RAG implementation, retained separately from the
 canonical Chroma implementation in `src/`. Algorithms and model defaults are
 unchanged.
 
+The module extraction added explicit input and numeric-argument checks and limits
+cache persistence and reuse to grounded verdicts. Prompts, model defaults, retrieval,
+judges, and evaluation formulas retain their October behavior.
+
 - `compliance_rag/` contains the shared pipeline, embeddings, FAISS/NumPy retrieval,
   prompts, judges, validation/retries, resume cache, evaluation, and reporting.
 - `scripts/compliance_rag_baseline.py` exposes those modules through the general CLI.
@@ -63,8 +67,8 @@ Its default output remains `results/issue13_saved_evaluation/`.
 
 Open `colab/notebooks/compliance_copilot_october_ollama.ipynb` in Google Colab and
 run its cells in order. The setup cells install dependencies and Ollama and pull
-models. The repository cell clones `integration/rag-pipeline`; that remote branch
-must contain this relocation before a fresh clone can use it. Alternatively, set
+models. The repository cell clones `main`, which must contain this relocation
+before a fresh clone can use it. Before merging, set
 `REPO` to an existing checkout containing `colab/`. The notebook adds the repository
 root to Python's import path and imports `colab.compliance_rag`.
 

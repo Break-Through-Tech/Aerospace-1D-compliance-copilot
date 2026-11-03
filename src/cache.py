@@ -8,6 +8,27 @@ from pathlib import Path
 from src.schemas import AuditRecord
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def validate_cache_path(path: str | Path) -> Path:
+    """Require a dedicated JSONL file outside published results and source data.
+
+    Loading can repair a torn write, so validate before reads as well as appends.
+    Resolve symlinks before checking the destination.
+    """
+    target = Path(path).resolve()
+    for protected in (PROJECT_ROOT / "results" / "october", PROJECT_ROOT / "data"):
+        protected = protected.resolve()
+        if target == protected or protected in target.parents:
+            raise ValueError(f"Cache destination is protected: {target}")
+    if target.suffix != ".jsonl":
+        raise ValueError("Cache destination must be a dedicated .jsonl file")
+    if target.exists() and not target.is_file():
+        raise ValueError(f"Cache destination must be a file: {target}")
+    return target
+
+
 def cache_key(value) -> str:
     """Hash JSON deterministically, independently of process or dictionary order."""
     payload = json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False)
@@ -29,8 +50,9 @@ def load_cache(path: str | Path) -> dict[str, AuditRecord]:
     Complete malformed lines and schema errors propagate. A valid final record
     without a newline is kept, with its separator restored.
     """
+    target = validate_cache_path(path)
     try:
-        handle = Path(path).open("r+b")
+        handle = target.open("r+b")
     except FileNotFoundError:
         return {}
     records = {}
@@ -63,7 +85,7 @@ def append_record(path: str | Path, key: str, record: AuditRecord) -> None:
     """Persist each success before the next requirement can fail."""
     if not successful(record):
         return
-    target = Path(path)
+    target = validate_cache_path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     entry = {"key": key, "record": record.model_dump(mode="json")}
     with target.open("a", encoding="utf-8") as handle:
