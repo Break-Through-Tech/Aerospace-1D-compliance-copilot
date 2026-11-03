@@ -50,7 +50,29 @@ reports reused and newly audited records. Without `--cache`, every requirement i
 audited normally. Use one writer per cache file and keep the index fixed during a
 batch. Use fixed model versions: replacing a model under the same Ollama tag is
 not detected. Cache checking reads the stored index once per batch, including its
-vectors; it does not rebuild the index. Reporting remains future work.
+vectors; it does not rebuild the index.
+
+To save an evaluation report, add `--out` with a run directory:
+
+```bash
+python -m scripts.evaluate_rag --out results/runs/first-run
+python -m scripts.evaluate_rag --cache results/audit_cache.jsonl --out results/runs/cached-run
+```
+
+Each directory contains complete canonical records (`audit_records.json`), benchmark
+rows with predictions and audit details (`predictions.csv`), the unchanged evaluator
+metrics (`metrics.json`), a human-row/model-column matrix including `INVALID`
+(`confusion_matrix.csv`), and a readable `report.md`. Failed audits remain in the
+records and CSV with their errors and an `INVALID` prediction. List fields in the
+CSV use JSON, alongside the evaluator's existing comma-separated `retrieved` column.
+
+Reporting reuses evaluation scores and ID alignment; it does not run another audit
+or change caching. Citation groundedness measures clause-ID membership, not evidence
+quality or overall compliance. The report distinguishes accepted-verdict and
+all-record denominators. Without `--out`, evaluation keeps its terminal-only output.
+Existing artifact files are never overwritten: choose a new run name for each report,
+including a resumed cached evaluation. Destinations under `results/october/` and
+`data/` are protected, and report files cannot collide with the cache path.
 
 ## Preserved October baseline
 
