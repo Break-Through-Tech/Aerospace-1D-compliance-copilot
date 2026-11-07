@@ -28,7 +28,7 @@ def test_records_preserve_order_failures_and_shared_resources(
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
     valid_verdict = AuditVerdict.model_validate(verdict_data)
     invalid_citation = AuditVerdict.model_validate({**verdict_data, **invalid_fields})
-    client = Mock()
+    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
     client.with_structured_output.return_value.invoke.side_effect = [
         valid_verdict, invalid_citation, invalid_citation, valid_verdict,
     ]
@@ -56,7 +56,7 @@ def test_records_preserve_order_failures_and_shared_resources(
 def test_empty_retrieval_and_unparseable_output_become_failed_records(requirements, clause_data):
     store = Mock()
     store.similarity_search.side_effect = [[], [Document(page_content="Search text", metadata=clause_data)]]
-    client = Mock()
+    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
     client.with_structured_output.return_value.invoke.side_effect = OutputParserException("Malformed verdict JSON")
 
     records = run_audits(requirements[:2], store, client, k=1)
@@ -78,7 +78,7 @@ def test_empty_retrieval_and_unparseable_output_become_failed_records(requiremen
 def test_service_and_unexpected_errors_stop_processing(requirements, clause_data, failure):
     store = Mock()
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
-    client = Mock()
+    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
     client.with_structured_output.return_value.invoke.side_effect = failure
 
     with pytest.raises(type(failure)) as caught:

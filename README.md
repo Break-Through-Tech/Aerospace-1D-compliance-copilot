@@ -39,8 +39,10 @@ python -m scripts.evaluate_rag --limit 5
 Without `--rebuild`, an existing populated collection is rejected. Explicit
 rebuilds replace only the configured collection and are destructive and non-atomic;
 stop readers until verification succeeds. See the [NASA corpus repair](docs/nasa-corpus-repair.md)
-for verification, recovery, and the separate retry-safety dependency required
-before production judgments or full benchmark evaluations of the repaired index.
+for verification, recovery, and audit context limits. Canonical audits currently
+require the reviewed standard `qwen3:4b` model/template; other generation models
+are rejected by the context guard. Oversized requests fail before inference
+without truncating source text.
 
 Index building and evaluation require Ollama; evaluation uses the existing Chroma
 index. Omit `--limit` for the full benchmark. The canonical implementation is
