@@ -87,20 +87,35 @@ Existing artifact files are never overwritten: choose a new run name for each re
 including a resumed cached evaluation. Destinations under `results/october/` and
 `data/` are protected, and report files cannot collide with the cache path.
 
-## Known classification limitation
+## Verified benchmark and limitations
 
-The latest full canonical benchmark with `qwen3:4b` (50 requirements, top-k 5)
-achieved 30% verdict accuracy, 92% retrieval Hit@5, 100% accepted verdicts, and
-0% Meets recall. It predicted `Partial` for 40 requirements and `Gap` for 10,
-including cases where added specificity was incorrectly treated as missing
-compliance. The published October baseline achieved 62% verdict accuracy.
+The November 7, 2026 evaluation used `qwen3:4b`, `nomic-embed-text`, top-k 5,
+the corrected 130-clause NASA corpus, and all 50 benchmark requirements without
+cached predictions. The directional prompt and rationale-first verdict schema
+achieved the following results, compared with 36% accuracy for the prior baseline:
 
-Classification quality remains a separate follow-up from architectural integration.
-An accepted verdict passes schema, citation, and evidence checks; those checks do
-not establish that its compliance judgment is correct. The canonical workflow
-should not be treated as a validated compliance decision system. Full-run outputs
-in `results/runs/` are local, ignored artifacts; the figures above record the known
-limitation for reviewers without requiring those files.
+| Metric | Value |
+| --- | --- |
+| Verdict accuracy | 74% (37/50) |
+| Macro F1 | 0.7005 |
+| Retrieval Hit@1 | 62% |
+| Retrieval Hit@5 | 98% |
+| Meets recall | 90.91% |
+| Partial recall | 35.71% |
+| Gap recall | 85.71% |
+| Accepted verdicts | 49/50 |
+| Invalid audits | 1 |
+
+Five `Meets` predictions were incorrect against the benchmark: requirements
+5, 9, 13, 16, and 23. These are five of 25 approvals (20%). The model still
+struggles with partially satisfied obligations and selecting the intended NASA
+clause. Accepted verdicts pass schema, citation, and evidence checks; those checks
+do not establish that the compliance judgment is correct.
+
+The 50 requirements have been reused during development, so these results do not
+demonstrate generalization; independently reviewed, unseen requirements are needed.
+This is an experimental compliance assistant, not a validated automated compliance
+authority. Full-run outputs remain local, ignored artifacts under `results/runs/`.
 
 ## Preserved October baseline
 
