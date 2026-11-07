@@ -29,14 +29,17 @@ start Ollama with the configured embedding model. Stop all readers before writin
 From the repository root:
 
 ```bash
-python -m scripts.build_index            # preview; no Chroma or Ollama access
-python -m scripts.build_index --rebuild  # delete and recreate configured collection
+python -m scripts.build_index            # first build: collection absent or empty
+python -m scripts.build_index --rebuild  # replace an existing index when needed
 ```
 
-Check the displayed source, database path, and collection before rebuilding.
-The command validates 130 unique SWE/clause IDs, uses `reset_collection()` and
-`add_documents()` to create fresh embeddings, then verifies stored count, IDs,
-complete text, and metadata against the source. Require exit status zero and
+The default command builds an absent or empty collection and rejects a populated
+collection without modifying its records. `--rebuild` explicitly allows destructive
+replacement of the configured collection using `reset_collection()`. Check `.env`
+for the intended database path and collection before rebuilding. Both commands
+validate 130 unique SWE/clause IDs, use `add_documents()` to create fresh embeddings,
+then verify stored count, IDs, complete text, and metadata against the source.
+Require exit status zero and
 `Verified 130 indexed records, including exact text and metadata.` Repeated
 rebuilds remove stale records without duplicates and preserve unrelated collections.
 

@@ -31,17 +31,18 @@ collection, and vector-store path. Start Ollama and explicitly install the model
 you selected, then run:
 
 ```bash
-python -m scripts.build_index
-python -m scripts.build_index --rebuild
+python -m scripts.build_index            # first build: collection absent or empty
+python -m scripts.build_index --rebuild  # replace an existing index when needed
 python -m scripts.evaluate_rag --limit 5
 ```
 
-The first command previews the source and target; `--rebuild` replaces only the
-configured collection. See the [NASA corpus repair](docs/nasa-corpus-repair.md)
+Without `--rebuild`, an existing populated collection is rejected. Explicit
+rebuilds replace only the configured collection and are destructive and non-atomic;
+stop readers until verification succeeds. See the [NASA corpus repair](docs/nasa-corpus-repair.md)
 for verification, recovery, and the separate retry-safety dependency required
 before production judgments or full benchmark evaluations of the repaired index.
 
-Rebuilding and evaluation require Ollama; evaluation uses the existing Chroma
+Index building and evaluation require Ollama; evaluation uses the existing Chroma
 index. Omit `--limit` for the full benchmark. The canonical implementation is
 independent of the October package. To save completed audits and resume a later run:
 

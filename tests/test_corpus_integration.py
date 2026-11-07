@@ -77,10 +77,31 @@ def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setattr(vector_store, "VECTOR_STORE_PATH", tmp_path / "chroma")
     monkeypatch.setattr(vector_store, "COLLECTION_NAME", "nasa_test")
     monkeypatch.setattr(vector_store, "get_embeddings", lambda: embeddings)
+    monkeypatch.setattr(build_index, "VECTOR_STORE_PATH", vector_store.VECTOR_STORE_PATH)
+    monkeypatch.setattr(build_index, "COLLECTION_NAME", vector_store.COLLECTION_NAME)
     return embeddings
 
 
-def test_rebuild_removes_stale_records_reembeds_and_preserves_other_collections(isolated_store):
+@pytest.mark.parametrize("existing_empty", [False, True])
+@pytest.mark.parametrize("args", [[], ["--rebuild"]])
+def test_cli_builds_absent_or_empty_collection(isolated_store, capsys, existing_empty, args):
+    if existing_empty:
+        vector_store.Chroma(
+            collection_name=vector_store.COLLECTION_NAME,
+            persist_directory=str(vector_store.VECTOR_STORE_PATH),
+            embedding_function=isolated_store,
+        )
+    build_index.main(args)
+    stored = vector_store.load_vector_store().get(include=["documents", "metadatas"])
+    documents = create_documents(load_requirements(DATA_PATH))
+    assert len(stored["ids"]) == 130
+    assert dict(zip(stored["ids"], zip(stored["documents"], stored["metadatas"]))) == {
+        doc.id: (doc.page_content, doc.metadata) for doc in documents
+    }
+    assert "Verified 130 indexed records" in capsys.readouterr().out
+
+
+def test_cli_rebuild_removes_stale_records_reembeds_and_preserves_other_collections(isolated_store, capsys):
     original = create_documents(load_requirements(DATA / "npr-7150-2d-requirements.csv"))
     store = vector_store.build_vector_store(original)
     store.add_documents([Document(id="stale", page_content="Outdated record")])
@@ -89,12 +110,18 @@ def test_rebuild_removes_stale_records_reembeds_and_preserves_other_collections(
         embedding_function=isolated_store,
     )
     other.add_documents([Document(id="keep", page_content="Unrelated record")])
+    before = store.get(include=["documents", "metadatas"])
+    calls_before = list(isolated_store.calls)
     with pytest.raises(ValueError, match="explicit rebuild"):
-        vector_store.build_vector_store(original)
+        build_index.main([])
+    assert store.get(include=["documents", "metadatas"]) == before
+    assert isolated_store.calls == calls_before
+    assert "Verified" not in capsys.readouterr().out
     fixed = create_documents(load_requirements(DATA_PATH))
     for _ in range(2):
         isolated_store.calls.clear()
-        store = vector_store.build_vector_store(fixed, rebuild=True)
+        build_index.main(["--rebuild"])
+        store = vector_store.load_vector_store()
         assert isolated_store.calls == [doc.page_content for doc in fixed]
         stored = store.get(include=["documents", "metadatas", "embeddings"])
         assert len(stored["ids"]) == 130
@@ -103,14 +130,16 @@ def test_rebuild_removes_stale_records_reembeds_and_preserves_other_collections(
         }
         assert len(stored["embeddings"]) == 130
         assert other.get()["ids"] == ["keep"]
+        assert "Verified 130 indexed records" in capsys.readouterr().out
 
 
-def test_failed_rebuild_propagates_and_empty_index_cannot_be_loaded(isolated_store):
+def test_failed_rebuild_propagates_and_empty_index_cannot_be_loaded(isolated_store, capsys):
     documents = create_documents(load_requirements(DATA_PATH))
     vector_store.build_vector_store(documents)
     isolated_store.fail = True
     with pytest.raises(RuntimeError, match="Embedding service unavailable"):
-        vector_store.build_vector_store(documents, rebuild=True)
+        build_index.main(["--rebuild"])
+    assert "Verified" not in capsys.readouterr().out
     with pytest.raises(ValueError, match="empty"):
         vector_store.load_vector_store()
 
@@ -126,15 +155,13 @@ def test_invalid_ids_fail_before_opening_chroma(monkeypatch, documents):
     factory.assert_not_called()
 
 
-def test_cli_preview_and_failed_rebuild_never_report_success(monkeypatch, capsys):
+@pytest.mark.parametrize("args", [[], ["--rebuild"]])
+def test_cli_verification_failure_never_reports_success(monkeypatch, capsys, args):
     build = Mock(side_effect=ValueError("Index verification failed"))
     monkeypatch.setattr(build_index, "build_vector_store", build)
-    build_index.main([])
-    build.assert_not_called()
-    assert "Preview only" in capsys.readouterr().out
     with pytest.raises(ValueError, match="verification failed"):
-        build_index.main(["--rebuild"])
-    assert build.call_args.kwargs == {"rebuild": True}
+        build_index.main(args)
+    assert build.call_args.kwargs == {"rebuild": bool(args)}
     assert "Verified" not in capsys.readouterr().out
 
 

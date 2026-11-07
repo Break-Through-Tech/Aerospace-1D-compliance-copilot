@@ -5,8 +5,13 @@ from src.preprocessing import load_requirements, create_documents
 from src.vector_store import build_vector_store
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Preview or rebuild the configured NASA collection.")
-    parser.add_argument("--rebuild", action="store_true", help="Delete and recreate the configured collection.")
+    parser = argparse.ArgumentParser(
+        description="Build the configured NASA collection; replacing existing records requires --rebuild."
+    )
+    parser.add_argument(
+        "--rebuild", action="store_true",
+        help="Allow destructive replacement by deleting and recreating the configured collection.",
+    )
     args = parser.parse_args(argv)
     df = load_requirements(DATA_PATH)
     documents = create_documents(df)
@@ -15,10 +20,7 @@ def main(argv=None):
         raise ValueError("Expected exactly 130 unique NASA requirements and clauses.")
     print(f"Source: {DATA_PATH}; records: {len(documents)}")
     print(f"Target: {VECTOR_STORE_PATH}; collection: {COLLECTION_NAME}")
-    if not args.rebuild:
-        print("Preview only: no index opened. Use --rebuild to replace the configured collection.")
-        return
-    build_vector_store(documents, rebuild=True)
+    build_vector_store(documents, rebuild=args.rebuild)
     print(f"Verified {len(documents)} indexed records, including exact text and metadata.")
 
 if __name__ == "__main__":
