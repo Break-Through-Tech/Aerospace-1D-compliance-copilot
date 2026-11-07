@@ -32,10 +32,16 @@ you selected, then run:
 
 ```bash
 python -m scripts.build_index
+python -m scripts.build_index --rebuild
 python -m scripts.evaluate_rag --limit 5
 ```
 
-Index building and evaluation require Ollama; evaluation uses the existing Chroma
+The first command previews the source and target; `--rebuild` replaces only the
+configured collection. See the [NASA corpus repair](docs/nasa-corpus-repair.md)
+for verification, recovery, and the separate retry-safety dependency required
+before production judgments or full benchmark evaluations of the repaired index.
+
+Rebuilding and evaluation require Ollama; evaluation uses the existing Chroma
 index. Omit `--limit` for the full benchmark. The canonical implementation is
 independent of the October package. To save completed audits and resume a later run:
 
