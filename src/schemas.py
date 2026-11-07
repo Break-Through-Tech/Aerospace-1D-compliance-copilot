@@ -33,14 +33,14 @@ class AuditVerdict(BaseModel):
     evidence: NonEmpty = Field(
         description="Exact nonempty phrase copied from the selected clause's requirement text."
     )
-    missing_elements: list[NonEmpty] = Field(
-        description="Required clause elements the requirement omits or covers vaguely. "
-        "Never list extra obligations added by the requirement. Empty only if every element is covered.",
-    )
     rationale: str = Field(
         min_length=15,
         pattern=r"\S",
         description="1-2 sentences comparing the requirement to the clause and explaining missing elements.",
+    )
+    missing_elements: list[NonEmpty] = Field(
+        description="Required clause elements the requirement omits or covers vaguely. "
+        "Never list extra obligations added by the requirement. Empty only if every element is covered.",
     )
     verdict: Literal["Meets", "Partial", "Gap"] = Field(
         description="Decide LAST: Meets = nothing missing; Partial = intent addressed but required elements "
