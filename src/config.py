@@ -6,7 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-DATA_PATH = PROJECT_ROOT / "data" / "npr-7150-2d-requirements.csv"
+DATA_PATH = PROJECT_ROOT / "data" / "npr-7150-2d-requirements_fixed.csv"
 VECTOR_STORE_PATH = PROJECT_ROOT / os.environ["VECTOR_STORE_PATH"]
 
 OLLAMA_HOST = os.environ["OLLAMA_HOST"]
