@@ -67,10 +67,9 @@ Its default output remains `results/issue13_saved_evaluation/`.
 
 Open `colab/notebooks/compliance_copilot_october_ollama.ipynb` in Google Colab and
 run its cells in order. The setup cells install dependencies and Ollama and pull
-models. The repository cell clones `main`, which must contain this relocation
-before a fresh clone can use it. Before merging, set
-`REPO` to an existing checkout containing `colab/`. The notebook adds the repository
-root to Python's import path and imports `colab.compliance_rag`.
+models. The repository cell clones `main`, which contains this workflow. Set `REPO`
+to an existing checkout if you want to use a local copy instead. The notebook adds
+the repository root to Python's import path and imports `colab.compliance_rag`.
 
 The notebook reads the checkout's shared `data/` directory and keeps its original
 `/content/out_<RUN_NAME>` outputs, optional Drive cache, and downloadable ZIP paths.

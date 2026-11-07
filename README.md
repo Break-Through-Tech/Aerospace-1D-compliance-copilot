@@ -8,6 +8,7 @@ structured verdicts (`Meets`, `Partial`, `Gap`), and benchmark evaluation.
 | Path | Purpose |
 | --- | --- |
 | `src/` | Canonical RAG: preprocessing, persistent Chroma retrieval, Ollama audits, schemas, and evaluation |
+| `scripts/setup.sh` | Create/reuse the virtual environment, install Python dependencies, and install missing Ollama/system prerequisites |
 | `scripts/build_index.py`, `scripts/evaluate_rag.py` | Canonical index building and benchmark evaluation |
 | `notebooks/01_preprocessing.ipynb`, `02_vector_indexing.ipynb`, `03_retrieval.ipynb` | Canonical exploration notebooks |
 | `colab/` | Preserved October baseline: modules, local scripts, and Colab notebook |
@@ -17,29 +18,55 @@ structured verdicts (`Meets`, `Partial`, `Gap`), and benchmark evaluation.
 
 ## Canonical Chroma workflow
 
-Use Python 3.10 or newer and run from the repository root:
+Use Python 3.10 or newer on Linux/WSL and run the existing setup script from the
+repository root:
 
 ```bash
-python -m venv .venv
+bash scripts/setup.sh
 source .venv/bin/activate
-python -m pip install -e .
-cp .env.example .env
+test -f .env || cp .env.example .env
 ```
 
-Configure `.env` with your Ollama host, generation and embedding models, Chroma
-collection, and vector-store path. Start Ollama and explicitly install the models
-you selected, then run:
+The script creates `.venv` if needed, installs the project dependencies, and
+installs `zstd` and Ollama when missing. System installation steps require the
+appropriate permissions. Activating the environment applies to your current shell;
+the script cannot activate it in the parent shell.
+
+Review `.env` before proceeding. The example uses `http://localhost:11434`,
+`qwen3:4b`, `nomic-embed-text`, collection `nasa_requirements`, and database
+directory `chroma_db` relative to the repository root. Existing shell environment
+variables take precedence over `.env`. Start `ollama serve` in another terminal
+if it is not already running, then install the
+configured models. These commands match the example; substitute your model names
+if your configuration differs:
 
 ```bash
-python -m scripts.build_index            # first build: collection absent or empty
-python -m scripts.build_index --rebuild  # replace an existing index when needed
+ollama pull nomic-embed-text
+ollama pull qwen3:4b
+```
+
+For a first build, when the configured collection is absent or empty:
+
+```bash
+python -m scripts.build_index
+```
+
+For an existing collection, use the [verification snippet](docs/nasa-corpus-repair.md#verify-an-existing-collection-without-rebuilding)
+instead of rebuilding. Only replace a collection when verification or an intended
+source or embedding-model change establishes that replacement is needed; see the
+[rebuild procedure](docs/nasa-corpus-repair.md#build-or-replace-the-configured-collection).
+Without `--rebuild`, a populated collection is rejected. Rebuilding is destructive
+and non-atomic; stop readers until verification succeeds.
+
+Once the collection is verified, run a small evaluation:
+
+```bash
 python -m scripts.evaluate_rag --limit 5
 ```
 
-Without `--rebuild`, an existing populated collection is rejected. Explicit
-rebuilds replace only the configured collection and are destructive and non-atomic;
-stop readers until verification succeeds. See the [NASA corpus repair](docs/nasa-corpus-repair.md)
-for verification, recovery, and audit limits. Audits use the configured generation
+See the [NASA corpus repair](docs/nasa-corpus-repair.md) for source provenance,
+recovery, and audit limits, and [WSL/Ollama troubleshooting](docs/nasa-corpus-repair.md#wslollama-memory-troubleshooting)
+for the memory issue observed during evaluation. Audits use the configured generation
 model and retry invalid responses once with fixed feedback, preserving the original
 source without appending failed answers or error dumps. Ollama manages context
 length; the application does not independently detect silent context truncation.
@@ -111,6 +138,13 @@ Five `Meets` predictions were incorrect against the benchmark: requirements
 struggles with partially satisfied obligations and selecting the intended NASA
 clause. Accepted verdicts pass schema, citation, and evidence checks; those checks
 do not establish that the compliance judgment is correct.
+
+Each verdict evaluates one model-selected clause. `Meets` means the model judges
+that clause's obligations satisfied; it does not establish coverage of every
+applicable NASA clause or overall project compliance. The benchmark uses an intended
+clause, so a different selection can answer a narrower question. For example,
+measuring coverage during tests may address clause 4.5.10 while omitting the
+tracking, recording, and reporting required by clause 4.5.9.
 
 The 50 requirements have been reused during development, so these results do not
 demonstrate generalization; independently reviewed, unseen requirements are needed.

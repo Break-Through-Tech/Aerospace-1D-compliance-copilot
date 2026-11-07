@@ -9,11 +9,21 @@ Requirements**, plus derived files suitable for retrieval and evaluation code.
   Langley mirror.
 - `npr-7150-2d-swehb.html` — full HTML copy downloaded from NASA's Software
   Engineering Handbook site.
-- `npr-7150-2d.txt` — plain-text extraction of the full HTML copy for RAG
-  ingestion.
-- `npr-7150-2d-requirements.csv` — 130 unique mandatory SWE requirements,
-  with clause numbers and source URLs.
-- `npr-7150-2d-requirements.json` — the same 130 requirement records as JSON.
+- `npr-7150-2d.txt` — plain-text extraction of the HTML copy; a source/reference
+  artifact, not the canonical pipeline's ingestion input.
+- **`npr-7150-2d-requirements_fixed.csv`** — canonical input selected by
+  `src/config.py`: 130 SWE records with complete repaired clause-local text,
+  including attached lists, conditions, notes, and a traceability table.
+- `npr-7150-2d-requirements_fixed.json` — equivalent repaired records as JSON;
+  checked against the CSV by the corpus integration tests.
+- `npr-7150-2d-requirements.csv` and `.json` — preserved original extraction,
+  used by the October workflow. These omit text restored in 62 records and should
+  not replace the repaired input in the canonical workflow.
+
+The repair expanded text in **62 records**, left **68 unchanged**, and added no
+new records or SWE IDs. Restoring a note does not make it an additional mandatory
+obligation. See the [corpus-repair guide](../docs/nasa-corpus-repair.md) for a
+before/after example, source-page inventory, verification, and index recovery.
 
 Official sources:
 
@@ -26,3 +36,9 @@ Benchmark:
 - `npr7150_ground_truth_benchmark.csv` — human-labeled requirement/clause pairs
   used by the October baseline. Renamed from the duplicated upload filename;
   its contents are unchanged.
+
+The benchmark contains 50 project requirements with intended NASA clauses,
+`Meets`/`Partial`/`Gap` labels, and rationales. Labels have not been changed by the
+corpus repair. The set has been reused during development and is not an independent
+holdout; applicability and clause-choice ambiguities remain. See the
+[current results and limitations](../README.md#verified-benchmark-and-limitations).
