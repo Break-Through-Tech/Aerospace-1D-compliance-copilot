@@ -43,16 +43,24 @@ def test_retrieve_rejects_invalid_inputs_before_search(requirement, k):
 
 
 def test_audit_returns_grounded_verdict(clause_data, verdict_data):
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     verdict = AuditVerdict.model_validate(verdict_data)
     client.with_structured_output.return_value.invoke.return_value = verdict
     clause = Clause.model_validate(clause_data)
     result = rag.audit_requirement("Maintain requirements", [clause], client=client)
     assert result == verdict
+    client.with_structured_output.return_value.invoke.assert_called_once()
+
+
+def test_audit_client_keeps_model_configurable_and_uses_ollama_context_default():
+    client = rag.create_audit_client(model="custom-model")
+    assert client.model == "custom-model"
+    assert client.num_ctx is None
+    assert client.num_predict == 600
 
 
 def test_audit_creates_default_client_with_requested_model(monkeypatch, clause_data, verdict_data):
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     verdict = AuditVerdict.model_validate(verdict_data)
     client.with_structured_output.return_value.invoke.return_value = verdict
     make_client = Mock(return_value=client)
@@ -77,7 +85,7 @@ def test_audit_rejects_ungrounded_verdicts(
     clauses = [Clause.model_validate(clause_data), Clause.model_validate({
         **clause_data, "clause": "4.1.3", "requirement": "Evidence from another clause",
     })]
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate({
         **verdict_data, "clause_id": clause_id, "evidence": evidence,
     })
@@ -110,7 +118,7 @@ def invalid_output(request, verdict_data):
 
 
 def test_invalid_output_is_corrected_with_feedback(clause_data, verdict_data, invalid_output):
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     invoke = client.with_structured_output.return_value.invoke
     corrected = AuditVerdict.model_validate(verdict_data)
     invoke.side_effect = [invalid_output, corrected]
@@ -128,6 +136,7 @@ def test_invalid_output_is_corrected_with_feedback(clause_data, verdict_data, in
     assert "previous response was invalid" in feedback
     assert feedback == rag.RETRY_FEEDBACK
     assert len(retry) == 3
+    assert len(feedback) <= 256
     assert all(message["role"] != "assistant" for message in retry)
     assert "4.1.2" in retry[1]["content"]
     if isinstance(invalid_output, Exception):
@@ -139,7 +148,7 @@ def test_invalid_output_is_corrected_with_feedback(clause_data, verdict_data, in
 def test_repeated_invalid_output_raises_last_error_after_two_attempts(clause_data, invalid_output):
     from langchain_core.exceptions import OutputParserException
 
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     invoke = client.with_structured_output.return_value.invoke
     invoke.side_effect = [invalid_output, invalid_output]
 
@@ -158,7 +167,7 @@ def test_repeated_invalid_output_raises_last_error_after_two_attempts(clause_dat
     TypeError("Unexpected response handling error"),
 ])
 def test_non_output_errors_propagate_without_retry(clause_data, failure):
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     invoke = client.with_structured_output.return_value.invoke
     invoke.side_effect = failure
 
@@ -173,7 +182,7 @@ def test_service_failure_during_correction_stops_immediately(clause_data):
     from langchain_core.exceptions import OutputParserException
     from ollama import ResponseError
 
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     invoke = client.with_structured_output.return_value.invoke
     failure = ResponseError("Model unavailable", status_code=404)
     invoke.side_effect = [OutputParserException("Invalid JSON"), failure]
@@ -186,7 +195,7 @@ def test_service_failure_during_correction_stops_immediately(clause_data):
 
 
 def test_structured_client_configuration_error_propagates(clause_data):
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     failure = ValueError("Unsupported structured output configuration")
     client.with_structured_output.side_effect = failure
 

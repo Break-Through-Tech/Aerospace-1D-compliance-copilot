@@ -36,7 +36,7 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
     load_store = Mock(return_value=store)
     monkeypatch.setattr(evaluate_rag, "load_vector_store", load_store)
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     client.model_dump.return_value = rag.create_audit_client().model_dump(mode="json")
     client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate(verdict_data)
     make_client = Mock(return_value=client)
@@ -56,7 +56,6 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
         model=rag.GENERATION_MODEL,
         base_url=rag.OLLAMA_HOST,
         temperature=0,
-        num_ctx=4096,
         num_predict=600,
         reasoning=False,
     )

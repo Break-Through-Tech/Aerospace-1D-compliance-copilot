@@ -6,6 +6,7 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.exceptions import OutputParserException
 from ollama import ResponseError
+from pydantic import ValidationError
 
 from src.rag import run_audits
 from src.schemas import AuditRecord, AuditVerdict
@@ -28,7 +29,7 @@ def test_records_preserve_order_failures_and_shared_resources(
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
     valid_verdict = AuditVerdict.model_validate(verdict_data)
     invalid_citation = AuditVerdict.model_validate({**verdict_data, **invalid_fields})
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     client.with_structured_output.return_value.invoke.side_effect = [
         valid_verdict, invalid_citation, invalid_citation, valid_verdict,
     ]
@@ -53,18 +54,28 @@ def test_records_preserve_order_failures_and_shared_resources(
     assert client.with_structured_output.return_value.invoke.call_count == 4
 
 
-def test_empty_retrieval_and_unparseable_output_become_failed_records(requirements, clause_data):
+@pytest.mark.parametrize("failure_kind", ["json", "schema"])
+def test_empty_retrieval_and_invalid_output_become_failed_records(requirements, clause_data, failure_kind):
     store = Mock()
     store.similarity_search.side_effect = [[], [Document(page_content="Search text", metadata=clause_data)]]
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
-    client.with_structured_output.return_value.invoke.side_effect = OutputParserException("Malformed verdict JSON")
+    client = Mock()
+    if failure_kind == "json":
+        failure = OutputParserException("Malformed verdict JSON")
+    else:
+        with pytest.raises(ValidationError) as caught:
+            AuditVerdict.model_validate({})
+        failure = caught.value
+    client.with_structured_output.return_value.invoke.side_effect = failure
 
     records = run_audits(requirements[:2], store, client, k=1)
 
     assert len(records) == 2
     assert records[0].retrieved_clause_ids == []
     assert records[0].verdict is None and "no clauses" in records[0].error
-    assert records[1].verdict is None and "Malformed verdict JSON" in records[1].error
+    assert records[1].verdict is None
+    assert not records[1].grounded
+    assert records[1].error.startswith("Invalid audit output:")
+    assert str(failure) in records[1].error
     assert client.with_structured_output.return_value.invoke.call_count == 2
 
 
@@ -78,7 +89,7 @@ def test_empty_retrieval_and_unparseable_output_become_failed_records(requiremen
 def test_service_and_unexpected_errors_stop_processing(requirements, clause_data, failure):
     store = Mock()
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     client.with_structured_output.return_value.invoke.side_effect = failure
 
     with pytest.raises(type(failure)) as caught:

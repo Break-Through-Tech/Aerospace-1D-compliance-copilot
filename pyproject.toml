@@ -14,9 +14,6 @@ include = ["src", "src.*", "colab", "colab.*"]
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
-[tool.setuptools.package-data]
-src = ["assets/*"]
-
 [project.optional-dependencies]
 october = ["numpy", "pandas", "pydantic>=2,<3", "ollama>=0.6.2", "scikit-learn", "tabulate"]
 sbert = ["sentence-transformers"]

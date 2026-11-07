@@ -48,30 +48,19 @@ Keep readers stopped, fix the failure, and rerun the complete rebuild until
 verification succeeds. Recreation uses pipeline defaults and discards custom
 collection settings; back up the database first if rollback is needed.
 
-## Retry safety and context limits
+## Validation retries and context limits
 
-Longer clauses could overflow the judge's context window when retries retained
-failed answers and exception text. Retries now keep the complete original
-requirement and retrieved clauses and append only fixed corrective feedback.
-A tokenizer-based preflight reserves the source, retry feedback, verdict schema,
-64 tokens of chat framing, and the output allowance before either attempt.
-Oversized requests raise `ContextBudgetError` without inference or source trimming.
-Validation remains unchanged, with at most two attempts; service and unexpected
-errors propagate. Cache fingerprints include the retry and budgeting policy.
+Audits use the configured `GENERATION_MODEL` and request a structured verdict.
+Schema, retrieved-clause citation, and exact-evidence checks must pass before a
+verdict is accepted. A validation failure triggers one retry with the original
+requirement and complete retrieved clauses plus short, fixed corrective feedback.
+Failed answers and exception dumps are never appended. After two invalid attempts,
+the batch records an error with no verdict; service, configuration, and unexpected
+errors propagate immediately. Cache fingerprints include the retry policy.
 
-Context budgeting supports only the reviewed standard `qwen3:4b` tokenizer and
-chat template. Defaults remain 4,096 context tokens and 600 output tokens.
-Although the generation model is configurable, other models and unknown or
-unbounded client limits are explicitly rejected. The guard cannot detect a
-custom model/template substituted under the same tag; retain the reviewed
-configuration. Longer inputs or larger retrieval/output settings may be rejected;
-the output limit can still cause invalid JSON. Budgets are checked offline,
-not against live server token telemetry, and do not establish verdict quality.
-
-The bundled tokenizer is an unmodified, gzip-compressed copy from
-[Qwen/Qwen3-4B revision 1cfa9a7208912126459214e8b04321603b3df60c](https://huggingface.co/Qwen/Qwen3-4B/blob/1cfa9a7208912126459214e8b04321603b3df60c/tokenizer.json).
-Its uncompressed SHA-256 is
-`aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4`,
-checked on load. The Apache-2.0 license is included in
-`src/assets/Qwen3-LICENSE.txt`; packaging includes both files. The direct
-`tokenizers` dependency enables accurate offline counting without runtime downloads.
+Ollama manages context length; the application no longer sets `num_ctx`, counts
+tokens, or independently detects silent context truncation. Configure Ollama's
+context capacity for the selected model and input size. The 600-token output limit
+remains and can still cause invalid JSON. Source text is preserved in the submitted
+messages, but fitting it into the server context is not guaranteed. Schema and
+citation validation establish format and source membership, not logical correctness.

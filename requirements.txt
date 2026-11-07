@@ -7,7 +7,6 @@ pytest
 pydantic
 python-dotenv
 ollama
-tokenizers>=0.21,<1
 
 # Used directly by the existing src/ollama_server.py helper
 requests

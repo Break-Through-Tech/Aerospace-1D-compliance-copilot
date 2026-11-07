@@ -19,7 +19,7 @@ from src.vector_store import get_embeddings
 def services(clause_data, verdict_data):
     # Real settings objects serialize exactly like production; inference is mocked.
     settings = rag.create_audit_client(model="test-model").model_dump(mode="json")
-    client = Mock(model="qwen3:4b", num_ctx=4096, num_predict=600)
+    client = Mock()
     client.model_dump.return_value = settings
     client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate(verdict_data)
     store = Mock()
@@ -105,7 +105,7 @@ def test_failed_requirements_are_retried(tmp_path, services, failure):
 
 @pytest.mark.parametrize("change", [
     "model", "temperature", "embedding_model", "embedding_settings", "prompt",
-    "context", "validation", "retry_feedback", "context_budget", "schema", "k", "text", "document", "metadata", "vector", "id", "metric",
+    "context", "validation", "retry_feedback", "schema", "k", "text", "document", "metadata", "vector", "id", "metric",
 ])
 def test_configuration_changes_invalidate_cache(tmp_path, services, monkeypatch, change):
     store, client = services
@@ -138,13 +138,6 @@ def test_configuration_changes_invalidate_cache(tmp_path, services, monkeypatch,
         monkeypatch.setattr(rag, "audit_requirement", new_validation)
     elif change == "retry_feedback":
         monkeypatch.setattr(rag, "RETRY_FEEDBACK", rag.RETRY_FEEDBACK + " Correct the JSON.")
-    elif change == "context_budget":
-        original = rag.check_audit_context
-
-        def new_budget(messages, client):
-            return original(messages, client)
-
-        monkeypatch.setattr(rag, "check_audit_context", new_budget)
     elif change == "schema":
         monkeypatch.setattr(rag.AuditVerdict, "model_json_schema", lambda: {"changed": True})
     elif change == "k":

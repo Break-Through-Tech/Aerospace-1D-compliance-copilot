@@ -2,10 +2,7 @@
 
 import json
 import inspect
-import gzip
-import hashlib
 from collections.abc import Iterable
-from functools import lru_cache
 from importlib.metadata import version
 from pathlib import Path
 
@@ -13,7 +10,6 @@ from langchain_chroma import Chroma
 from langchain_core.exceptions import OutputParserException
 from langchain_ollama import ChatOllama
 from pydantic import ValidationError
-from tokenizers import Tokenizer
 
 from src.config import OLLAMA_HOST, GENERATION_MODEL
 from src.schemas import AuditRecord, AuditVerdict, Clause
@@ -48,51 +44,11 @@ class CitationValidationError(ValueError):
     """The verdict cites an unretrieved clause or evidence outside its text."""
 
 
-class ContextBudgetError(ValueError):
-    """The complete audit and its retry cannot be safely budgeted."""
-
-
 RETRY_FEEDBACK = (
     "The previous response was invalid. Return JSON matching the supplied schema. "
     "Use only a retrieved clause_id. Copy evidence exactly from that clause's "
     "requirement text. Keep verdict and missing_elements consistent."
 )
-
-
-@lru_cache(maxsize=1)
-def _audit_tokenizer() -> Tokenizer:
-    """Load the pinned Qwen3-4B tokenizer once, without network access."""
-    asset = Path(__file__).with_name("assets") / "qwen3-4b-tokenizer.json.gz"
-    data = gzip.decompress(asset.read_bytes())
-    if hashlib.sha256(data).hexdigest() != "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4":
-        raise ContextBudgetError("Audit tokenizer does not match the reviewed Qwen3-4B asset")
-    return Tokenizer.from_str(data.decode("utf-8"))
-
-
-def check_audit_context(messages: list[dict[str, str]], client: ChatOllama) -> int:
-    """Reserve full content, schema, chat framing and output; never trim input.
-
-    Only the reviewed Qwen3-4B tokenizer/template is supported. An injected client
-    must supply explicit finite settings, rather than inherit unknown server limits.
-    The schema allowance is conservative even when Ollama uses it only as a grammar.
-    """
-    if client.model != "qwen3:4b":
-        raise ContextBudgetError("Context budgeting requires the reviewed qwen3:4b tokenizer/template")
-    if any(type(value) is not int or value <= 0 for value in (client.num_ctx, client.num_predict)):
-        raise ContextBudgetError("Context budgeting requires explicit positive num_ctx and num_predict")
-    tokenizer = _audit_tokenizer()
-    texts = [message["content"] for message in messages]
-    texts.append(json.dumps(AuditVerdict.model_json_schema(), ensure_ascii=False))
-    # At most three messages, no tools: 64 tokens exceed the reviewed template's
-    # role delimiters, generation prefix and disabled-thinking framing overhead.
-    required = sum(len(tokenizer.encode(text, add_special_tokens=False).ids) for text in texts)
-    required += 64 + client.num_predict
-    if required > client.num_ctx:
-        raise ContextBudgetError(
-            f"Complete audit plus retry needs {required} budgeted tokens; "
-            f"num_ctx is {client.num_ctx}. No source text was truncated."
-        )
-    return required
 
 
 def create_audit_client(model: str = GENERATION_MODEL) -> ChatOllama:
@@ -101,7 +57,6 @@ def create_audit_client(model: str = GENERATION_MODEL) -> ChatOllama:
         model=model,
         base_url=OLLAMA_HOST,
         temperature=0,
-        num_ctx=4096,
         num_predict=600,
         reasoning=False,
     )
@@ -158,8 +113,8 @@ def audit_requirement(
     unexpected errors propagate immediately.
     Grounding proves evidence provenance, not that the judgment is correct.
     An injected ChatOllama instance supplies its own model and generation settings;
-    model configures the default instance only. Before inference, budget the full
-    source plus retry; unsupported or oversized contexts raise ContextBudgetError.
+    model configures the default instance only. Ollama manages context length;
+    the application does not independently detect source truncation.
     """
     prompt = build_user_prompt(requirement_text, clauses)
     if client is None:
@@ -168,10 +123,7 @@ def audit_requirement(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    # Budget the larger retry before either call so a successful preflight always
-    # leaves room for correction while preserving the complete original evidence.
     retry_messages = [*messages, {"role": "user", "content": RETRY_FEEDBACK}]
-    check_audit_context(retry_messages, client)
     structured_client = client.with_structured_output(
         AuditVerdict, method="json_schema"
     )
@@ -229,11 +181,10 @@ def run_audits(
             "retry_feedback": RETRY_FEEDBACK,
             "schemas": [schema.model_json_schema() for schema in (Clause, AuditVerdict, AuditRecord)],
             "libraries": {package: version(package) for package in (
-                "pydantic", "pydantic-core", "langchain-ollama", "langchain-chroma", "chromadb", "tokenizers",
+                "pydantic", "pydantic-core", "langchain-ollama", "langchain-chroma", "chromadb",
             )},
             "implementation": [inspect.getsource(obj) for obj in (
                 build_user_prompt, audit_requirement, retrieve_clauses,
-                check_audit_context, _audit_tokenizer,
                 Clause, AuditVerdict, AuditRecord,
             )],
             "index": index_fingerprint(vector_store),
