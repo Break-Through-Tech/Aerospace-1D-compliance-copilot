@@ -2,13 +2,12 @@
 
 import argparse
 
-import pandas as pd
 from httpx import RequestError
 from ollama import ResponseError
 
 from src.cache import validate_cache_path
-from src.config import GENERATION_MODEL, PROJECT_ROOT
-from src.evaluation import evaluate
+from src.config import BENCHMARK_PATH, GENERATION_MODEL
+from src.evaluation import evaluate, load_benchmark
 from src.rag import create_audit_client, run_audits
 from src.reporting import save_results, validate_output_directory
 from src.vector_store import load_vector_store
@@ -33,27 +32,20 @@ def main(argv=None):
     except ValueError as exc:
         parser.error(str(exc))
 
-    benchmark = pd.read_csv(
-        PROJECT_ROOT / "data" / "npr7150_ground_truth_benchmark.csv",
-        dtype=str,
-        keep_default_na=False,
-    )
+    benchmark, requirements = load_benchmark(BENCHMARK_PATH)
     if args.limit is not None:
         benchmark = benchmark.head(args.limit)
+        requirements = requirements[:args.limit]
 
     print("Loading persistent Chroma index...")
     try:
         vector_store = load_vector_store()
         client = create_audit_client()
-        requirements = benchmark[["requirement_id", "requirement_text"]].itertuples(index=False, name=None)
         print(f"Auditing {len(benchmark)} requirements...", flush=True)
         records = run_audits(requirements, vector_store, client, k=args.k, cache_path=args.cache)
     except (ConnectionError, RequestError, ResponseError) as exc:
         raise SystemExit(f"Evaluation stopped: Ollama service failure: {exc}") from exc
 
-    for index, record in enumerate(records, 1):
-        status = record.verdict.verdict if record.verdict else f"FAILED: {record.error}"
-        print(f"[{index}/{len(records)}] {record.requirement_id}: {status}")
     rows, metrics, matrix = evaluate(benchmark, records, k=args.k)
     print(f"\nEvaluated {metrics['n']} requirements (k={args.k}, model={GENERATION_MODEL}).")
     print(f"Verdict accuracy: {metrics['verdict_accuracy']:.2%}; macro F1: {metrics['macro_f1']:.4f}")

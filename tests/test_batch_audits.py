@@ -23,7 +23,7 @@ def requirements():
      "Evidence must be an exact excerpt of the selected clause's requirement"),
 ])
 def test_records_preserve_order_failures_and_shared_resources(
-    requirements, clause_data, verdict_data, invalid_fields, error,
+    requirements, clause_data, verdict_data, invalid_fields, error, capsys,
 ):
     store = Mock()
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
@@ -52,6 +52,9 @@ def test_records_preserve_order_failures_and_shared_resources(
     assert records[1].error == f"Citation validation failed: {error}"
     assert records[2].verdict == valid_verdict
     assert client.with_structured_output.return_value.invoke.call_count == 4
+    assert capsys.readouterr().out.splitlines() == [
+        "[1] r3: Meets", "[2] r1: FAILED", "[3] r2: Meets",
+    ]
 
 
 @pytest.mark.parametrize("failure_kind", ["json", "schema"])

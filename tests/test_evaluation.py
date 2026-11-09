@@ -3,8 +3,24 @@
 import pandas as pd
 import pytest
 
-from src.evaluation import evaluate
+from src.evaluation import evaluate, load_benchmark
 from src.schemas import AuditRecord, AuditVerdict
+
+
+def test_load_benchmark_preserves_ids_and_returns_only_requirement_pairs(tmp_path):
+    path = tmp_path / "benchmark.csv"
+    path.write_text(
+        "requirement_id,requirement_text,clause_id,label\n"
+        "002,Second requirement,4.1.2,Meets\n"
+        "001,NA,,Gap\n"
+    )
+
+    benchmark, requirements = load_benchmark(path)
+
+    assert requirements == [("002", "Second requirement"), ("001", "NA")]
+    assert benchmark["requirement_id"].tolist() == [req_id for req_id, _ in requirements]
+    assert benchmark["clause_id"].tolist() == ["4.1.2", ""]
+    assert benchmark["label"].tolist() == ["Meets", "Gap"]
 
 
 def make_benchmark():

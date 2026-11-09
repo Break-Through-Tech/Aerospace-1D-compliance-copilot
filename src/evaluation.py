@@ -1,6 +1,7 @@
 """Evaluate completed canonical audit records against a labeled benchmark."""
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import pandas as pd
 
@@ -10,6 +11,19 @@ from src.schemas import AuditRecord
 LABELS = ("Meets", "Partial", "Gap")
 PREDICTION_LABELS = LABELS + ("INVALID",)
 BENCHMARK_COLUMNS = {"requirement_id", "requirement_text", "clause_id", "label"}
+
+
+def load_benchmark(path: str | Path) -> tuple[pd.DataFrame, list[tuple[str, str]]]:
+    """Return labeled rows and reusable (ID, text) pairs in the same row order.
+
+    Preserve IDs and empty fields as strings. Requirements exclude gold clauses
+    and labels so they can be passed directly to run_audits().
+    """
+    benchmark = pd.read_csv(path, dtype=str, keep_default_na=False)
+    requirements = list(
+        benchmark[["requirement_id", "requirement_text"]].itertuples(index=False, name=None)
+    )
+    return benchmark, requirements
 
 
 def prf(tp: int, fp: int, fn: int) -> dict[str, int | float]:

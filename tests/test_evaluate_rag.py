@@ -23,8 +23,11 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
         {"requirement_id": req_id, "requirement_text": text, "clause_id": "4.1.2", "label": "Meets"}
         for req_id, text in [("r3", "First requirement"), ("r1", "Second requirement"), ("r2", "Third requirement")]
     ])
-    read_csv = Mock(return_value=benchmark)
-    monkeypatch.setattr(evaluate_rag.pd, "read_csv", read_csv)
+    requirements = list(benchmark[["requirement_id", "requirement_text"]].itertuples(index=False, name=None))
+    load_benchmark = Mock(return_value=(benchmark, requirements))
+    monkeypatch.setattr(evaluate_rag, "load_benchmark", load_benchmark)
+    benchmark_path = tmp_path / "custom-benchmark.csv"
+    monkeypatch.setattr(evaluate_rag, "BENCHMARK_PATH", benchmark_path)
     store = Mock()
     store.embeddings = get_embeddings()
     store._collection.metadata = None
@@ -51,6 +54,7 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
         args += ["--out", str(tmp_path / "run")]
     evaluate_rag.main(args)
 
+    load_benchmark.assert_called_once_with(benchmark_path)
     load_store.assert_called_once_with()
     make_client.assert_called_once_with(
         model=rag.GENERATION_MODEL,
@@ -138,7 +142,7 @@ def test_invalid_cache_fails_before_reading_benchmark_or_loading_services(
     path.write_bytes(b'{"key":')
     read = Mock()
     load = Mock()
-    monkeypatch.setattr(evaluate_rag.pd, "read_csv", read)
+    monkeypatch.setattr(evaluate_rag, "load_benchmark", read)
     monkeypatch.setattr(evaluate_rag, "load_vector_store", load)
     args = ["--cache", str(path)]
     if with_output:

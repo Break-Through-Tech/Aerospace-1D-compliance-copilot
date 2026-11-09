@@ -1,7 +1,7 @@
 """Retrieve NASA clauses and audit individual requirements or ordered batches."""
 
 import inspect
-from collections.abc import Iterable
+from collections.abc import Iterable, Sized
 from importlib.metadata import version
 from pathlib import Path
 
@@ -113,9 +113,11 @@ def run_audits(
     propagate to the caller. No benchmark labels or evaluation data are needed.
     An optional single-writer JSONL cache saves grounded successes immediately.
     Keep the index and model versions fixed while a batch is running.
+    Print progress after each completed or cached requirement, flushing immediately.
     """
     records = []
     reused = 0
+    total = len(requirements) if isinstance(requirements, Sized) else None
     if cache_path is not None:
         if type(k) is not int or k < 1:
             raise ValueError("k must be a positive integer")
@@ -139,7 +141,8 @@ def run_audits(
             "index": index_fingerprint(vector_store),
         })
         cached = load_cache(cache_path)
-    for requirement_id, requirement_text in requirements:
+    for index, (requirement_id, requirement_text) in enumerate(requirements, 1):
+        progress = f"{index}/{total}" if total is not None else str(index)
         if cache_path is not None:
             key = cache_key({"configuration": configuration, "requirement": requirement_text})
             previous = cached.get(key)
@@ -147,6 +150,7 @@ def run_audits(
                 # IDs belong to this run, not to the wording's previous use.
                 records.append(previous.model_copy(update={"requirement_id": str(requirement_id)}, deep=True))
                 reused += 1
+                print(f"[{progress}] {requirement_id}: CACHED", flush=True)
                 continue
         clauses = retrieve_clauses(requirement_text, vector_store, k=k)
         record = AuditRecord(
@@ -170,6 +174,8 @@ def run_audits(
         if cache_path is not None and successful(record):
             append_record(cache_path, key, record)
             cached[key] = record
+        status = record.verdict.verdict if record.verdict else "FAILED"
+        print(f"[{progress}] {requirement_id}: {status}", flush=True)
     if cache_path is not None:
         print(f"Cache: {reused} reused; {len(records) - reused} newly audited (including failed attempts).")
     return records

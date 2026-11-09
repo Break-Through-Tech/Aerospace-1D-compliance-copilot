@@ -53,7 +53,11 @@ def test_persistence_reuse_order_and_current_ids(tmp_path, services, capsys):
     assert resumed[0].verdict == original[1].verdict
     store.similarity_search.assert_called_once_with("Third", k=2)
     client.with_structured_output.assert_called_once()
-    assert "2 reused; 1 newly audited" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "[1/3] new-id: CACHED" in output
+    assert "[2/3] r3: CACHED" in output
+    assert "[3/3] r4: Meets" in output
+    assert "2 reused; 1 newly audited" in output
 
 
 @pytest.mark.parametrize("failure_site", ["retrieval", "inference"])
@@ -181,7 +185,7 @@ def test_disabled_cache_never_reads_settings_or_index(services, capsys):
         assert rag.run_audits([("a", "First")], store, client, k=2)[0].grounded
     assert store.similarity_search.call_count == 2
     assert client.with_structured_output.call_count == 2
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().out.splitlines() == ["[1/1] a: Meets"] * 2
 
 
 @pytest.fixture
