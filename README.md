@@ -114,6 +114,13 @@ Existing artifact files are never overwritten: choose a new run name for each re
 including a resumed cached evaluation. Destinations under `results/october/` and
 `data/` are protected, and report files cannot collide with the cache path.
 
+## November agent tools (Issue #25)
+
+Tool definitions wrap existing retrieval and judging functions with
+`retrieve_clause`, `check_requirement`, and `log_gap`. See the
+[tool contracts, agent instructions, and manual example](docs/agent.md).
+This step supplies tools and instructions; the agent runtime is future work.
+
 ## Verified benchmark and limitations
 
 The November 7, 2026 evaluation used `qwen3:4b`, `nomic-embed-text`, top-k 5,
