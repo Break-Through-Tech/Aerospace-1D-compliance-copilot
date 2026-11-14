@@ -73,6 +73,13 @@ in Colab and run its cells in order. At step 3, upload:
 The notebook copies the uploaded script into Colab's import directory. The
 notebook's `/content` paths refer to the Colab runtime, not this repository.
 
+## November agent tools (Issue #25)
+
+Tool definitions wrap existing retrieval and judging functions with
+`retrieve_clause`, `check_requirement`, and `log_gap`. See the
+[tool contracts, agent instructions, and manual example](docs/agent.md).
+This step supplies tools and instructions; the agent runtime is future work.
+
 ## Published October results
 
 The original Ollama v2 experiment has 50 benchmark rows and top-k = 5:
