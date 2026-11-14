@@ -1,9 +1,8 @@
-# Standalone October baseline; existing indexing dependencies stay in requirements.txt.
+# Local modular RAG baseline; no Colab or notebook runtime needed.
 numpy
 pandas
 pydantic>=2,<3
-ollama
-requests
+ollama>=0.6.2
 scikit-learn
 tabulate
 # Optional acceleration: pip install faiss-cpu (NumPy fallback is built in).
