@@ -115,3 +115,47 @@ def test_local_conversion_finds_shared_data_outside_repository(tmp_path, monkeyp
         script.main(['--out', str(out)])
     discover.assert_called_once_with(ROOT / 'data')
     assert script.ROOT == ROOT
+
+
+def test_request_cache_reuses_grounded_judgements_and_skips_sleep():
+    from src.api_layer import RequestCache
+    from colab.compliance_rag.schemas import Clause
+
+    clause = Clause(clause_id="4.1.2", swe_id="SWE-050", text="Document requirements.")
+    index = Mock()
+    index.search.return_value = [(clause, 0.9)]
+    index.embedder.name = "test"
+    judge = Mock()
+    judge.name = "test"
+    valid = AuditVerdict(clause_id="4.1.2", evidence="Document requirements", missing_elements=[],
+                         rationale="The requirement covers the clause obligations.", verdict="Meets")
+    judge.judge.return_value = valid
+    bench = pd.DataFrame({"requirement_id": ["one", "two"], "requirement_text": ["Same text", "Same text"]})
+    cache = RequestCache()
+    with patch("colab.compliance_rag.pipeline.time.sleep") as sleep:
+        records = run_pipeline(bench, index, judge, 2, sleep=1, request_cache=cache)
+    judge.judge.assert_called_once()
+    sleep.assert_called_once_with(1)
+    assert [r.requirement_id for r in records] == ["one", "two"]
+    assert cache.summary()["hits"] == 1
+
+
+def test_request_cache_retries_ungrounded_judgements():
+    from src.api_layer import RequestCache
+    from colab.compliance_rag.schemas import Clause
+
+    index = Mock()
+    index.search.return_value = [(Clause(clause_id="4.1.2", swe_id="SWE-050", text="Document requirements."), 0.9)]
+    index.embedder.name = "test"
+    judge = Mock()
+    judge.name = "test"
+    good = AuditVerdict(clause_id="4.1.2", evidence="Document requirements", missing_elements=[],
+                        rationale="The requirement covers the clause obligations.", verdict="Meets")
+    judge.judge.side_effect = [good.model_copy(update={"clause_id": "999"}), good]
+    bench = pd.DataFrame({"requirement_id": ["one", "two"], "requirement_text": ["Same text", "Same text"]})
+    cache = RequestCache()
+    records = run_pipeline(bench, index, judge, 2, request_cache=cache)
+    assert records[0].error and records[0].verdict is None
+    assert records[1].grounded
+    assert judge.judge.call_count == 2
+    assert cache.summary()["hits"] == 0

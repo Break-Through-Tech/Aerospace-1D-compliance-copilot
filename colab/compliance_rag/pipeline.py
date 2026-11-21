@@ -2,16 +2,25 @@
 import time
 from typing import List, Optional
 import pandas as pd
-from .schemas import AuditRecord
+from src.api_layer import RequestCache
+from .schemas import AuditRecord, AuditVerdict
 from .retrieval import ClauseIndex
 from .cache import _cache_key, load_cache, append_record
 
 def run_pipeline(bench: pd.DataFrame, index: ClauseIndex, judge, k: int,
-                 cache_path: Optional[str] = None, sleep: float = 0.0) -> List[AuditRecord]:
+                 cache_path: Optional[str] = None, sleep: float = 0.0,
+                 request_cache: Optional[RequestCache] = None) -> List[AuditRecord]:
     """Resumable: every successful row is appended to cache_path (jsonl). Re-running skips cached rows,
     so a Colab disconnect / quota stop loses nothing. Cache key includes judge, model, embedder, k, prompt."""
     cache = load_cache(cache_path)
 
+    def judge_validated(text, hits):
+        verdict = AuditVerdict.model_validate(judge.judge(text, hits))
+        if verdict.clause_id not in {clause.clause_id for clause, _ in hits}:
+            raise ValueError("Assessment cites a clause outside the retrieved set")
+        return verdict
+
+    judge_request = request_cache.wrap(judge_validated) if request_cache is not None else judge.judge
     records = []
     for i, row in enumerate(bench.itertuples(), 1):
         key = _cache_key(judge, index.embedder.name, k, row.requirement_text)
@@ -23,8 +32,9 @@ def run_pipeline(bench: pd.DataFrame, index: ClauseIndex, judge, k: int,
         hits = index.search(row.requirement_text, k)           # NOTE: only requirement text is used
         rec = AuditRecord(requirement_id=str(row.requirement_id), requirement_text=row.requirement_text,
                           retrieved_clause_ids=[c.clause_id for c, _ in hits])
+        misses_before = request_cache.summary()["misses"] if request_cache is not None else None
         try:
-            rec.verdict = judge.judge(row.requirement_text, hits)
+            rec.verdict = judge_request(row.requirement_text, hits)
             rec.grounded = rec.verdict.clause_id in rec.retrieved_clause_ids
         except Exception as e:                                  # noqa: BLE001
             rec.error = str(e)[:300]
@@ -40,6 +50,6 @@ def run_pipeline(bench: pd.DataFrame, index: ClauseIndex, judge, k: int,
         records.append(rec)
         status = rec.verdict.verdict.value if rec.verdict else f"ERROR: {rec.error}"
         print(f"[{i}/{len(bench)}] req {rec.requirement_id}: {status}", flush=True)
-        if sleep:
+        if sleep and (request_cache is None or request_cache.summary()["misses"] > misses_before):
             time.sleep(sleep)
     return records

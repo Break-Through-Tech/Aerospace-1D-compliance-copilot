@@ -5,6 +5,7 @@ import argparse
 from httpx import RequestError
 from ollama import ResponseError
 
+from src.api_layer import RequestCache
 from src.cache import validate_cache_path
 from src.config import BENCHMARK_PATH, GENERATION_MODEL
 from src.evaluation import evaluate, load_benchmark
@@ -19,6 +20,7 @@ def main(argv=None):
     parser.add_argument("--k", type=int, default=5, help="Number of clauses to retrieve (default: 5)")
     parser.add_argument("--cache", help="JSONL cache path for resuming completed audits")
     parser.add_argument("--out", help="Directory for evaluation artifacts (existing files are never overwritten)")
+    parser.add_argument("--request-cache", action="store_true", help="Reuse identical validated model requests within this run")
     args = parser.parse_args(argv)
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be positive")
@@ -42,7 +44,10 @@ def main(argv=None):
         vector_store = load_vector_store()
         client = create_audit_client()
         print(f"Auditing {len(benchmark)} requirements...", flush=True)
-        records = run_audits(requirements, vector_store, client, k=args.k, cache_path=args.cache)
+        options = {"request_cache": RequestCache()} if args.request_cache else {}
+        records = run_audits(requirements, vector_store, client, k=args.k, cache_path=args.cache, **options)
+        if args.request_cache:
+            print("Request cache:", options["request_cache"].summary())
     except (ConnectionError, RequestError, ResponseError) as exc:
         raise SystemExit(f"Evaluation stopped: Ollama service failure: {exc}") from exc
 

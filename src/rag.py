@@ -10,6 +10,7 @@ from langchain_core.exceptions import OutputParserException
 from langchain_ollama import ChatOllama
 from pydantic import ValidationError
 
+from src.api_layer import RequestCache
 from src.config import OLLAMA_HOST, GENERATION_MODEL
 from src.prompts import SYSTEM_PROMPT, RETRY_FEEDBACK, build_user_prompt
 from src.schemas import AuditRecord, AuditVerdict, Clause
@@ -104,6 +105,7 @@ def run_audits(
     *,
     k: int,
     cache_path: str | Path | None = None,
+    request_cache: RequestCache | None = None,
 ) -> list[AuditRecord]:
     """Audit ordered ``(requirement_id, requirement_text)`` pairs.
 
@@ -115,6 +117,11 @@ def run_audits(
     Keep the index and model versions fixed while a batch is running.
     Print progress after each completed or cached requirement, flushing immediately.
     """
+    def judge(text, clauses):
+        return audit_requirement(text, clauses, client=client)
+
+    # Private wrapper scope binds this run to its client and validation settings.
+    judge = request_cache.wrap(judge) if request_cache is not None else judge
     records = []
     reused = 0
     total = len(requirements) if isinstance(requirements, Sized) else None
@@ -162,7 +169,7 @@ def run_audits(
             record.error = "Retrieval returned no clauses"
         else:
             try:
-                verdict = audit_requirement(requirement_text, clauses, client=client)
+                verdict = judge(requirement_text, clauses)
             except (ValidationError, OutputParserException) as exc:
                 record.error = f"Invalid audit output: {exc}"
             except CitationValidationError as exc:

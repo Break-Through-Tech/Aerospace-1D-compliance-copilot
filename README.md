@@ -186,7 +186,8 @@ python3 -m scripts.demo_request_cache
 ```
 
 See [request cache usage](docs/request-cache.md) for setup, expiration, concurrency,
-statistics and tests. Existing pipelines retain their current caching behavior.
+statistics and tests. Enable it in either pipeline CLI with `--request-cache`;
+the existing persistent `--cache` option can be used alongside it.
 
 ## Tests
 

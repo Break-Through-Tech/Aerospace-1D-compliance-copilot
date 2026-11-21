@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+from src.api_layer import RequestCache
 from .data import load_clauses, load_benchmark
 from .embeddings import TfidfEmbedder, SbertEmbedder, OllamaEmbedder
 from .retrieval import ClauseIndex
@@ -25,6 +26,7 @@ def main(argv=None):
     ap.add_argument("--cache", default=None, help="jsonl cache for resumable runs (default: <out>/cache.jsonl)")
     ap.add_argument("--sleep", type=float, default=0.0,
                     help="seconds to pause between API calls (free-tier Gemini: try 6)")
+    ap.add_argument("--request-cache", action="store_true", help="Reuse identical validated judge requests within this run")
     a = ap.parse_args(argv)
 
     if a.k < 1 or (a.limit is not None and a.limit < 1) or a.sleep < 0:
@@ -46,7 +48,10 @@ def main(argv=None):
              "heuristic": HeuristicJudge}[a.judge]()
 
     Path(a.out).mkdir(parents=True, exist_ok=True)
-    records = run_pipeline(bench, index, judge, a.k, a.cache or str(Path(a.out) / "cache.jsonl"), a.sleep)
+    options = {"request_cache": RequestCache()} if a.request_cache else {}
+    records = run_pipeline(bench, index, judge, a.k, a.cache or str(Path(a.out) / "cache.jsonl"), a.sleep, **options)
+    if a.request_cache:
+        print("Request cache:", options["request_cache"].summary())
     df, metrics, cm = evaluate(bench, records, a.k)
 
     out = Path(a.out)

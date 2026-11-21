@@ -100,3 +100,36 @@ def test_service_and_unexpected_errors_stop_processing(requirements, clause_data
     assert caught.value is failure
     store.similarity_search.assert_called_once()
     client.with_structured_output.return_value.invoke.assert_called_once()
+
+
+def test_request_cache_reuses_validated_audits(clause_data, verdict_data):
+    from src.api_layer import RequestCache
+
+    store = Mock()
+    store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
+    client = Mock()
+    client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate(verdict_data)
+    cache = RequestCache()
+    records = run_audits([("one", "Same text"), ("two", "Same text")], store, client, k=2, request_cache=cache)
+    assert [record.requirement_id for record in records] == ["one", "two"]
+    assert records[0].verdict == records[1].verdict
+    assert records[0].verdict is not records[1].verdict
+    assert client.with_structured_output.return_value.invoke.call_count == 1
+    assert cache.summary()["hits"] == 1
+
+
+def test_request_cache_does_not_reuse_invalid_audits(clause_data, verdict_data):
+    from src.api_layer import RequestCache
+
+    store = Mock()
+    store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
+    client = Mock()
+    good = AuditVerdict.model_validate(verdict_data)
+    bad = good.model_copy(update={"clause_id": "999"})
+    client.with_structured_output.return_value.invoke.side_effect = [bad, bad, good]
+    cache = RequestCache()
+    records = run_audits([("one", "Same text"), ("two", "Same text")], store, client, k=2, request_cache=cache)
+    assert records[0].error
+    assert records[1].grounded
+    assert cache.summary()["hits"] == 0
+    assert client.with_structured_output.return_value.invoke.call_count == 3

@@ -4,8 +4,8 @@
 Aaliyan's request cache in section 4. It uses only the Python standard library
 and accepts a synchronous callable for any provider.
 
-This module is available for callers to opt into. The existing repository
-pipelines do not automatically use it. Their persistent audit caches remain
+Both pipeline CLIs enable request caching with `--request-cache`.
+Their persistent audit caches remain
 available for resuming runs; this request cache keeps results in memory for the
 lifetime of the cache instance. Restarting Python starts with an empty cache.
 
@@ -80,8 +80,7 @@ tuples, dictionaries, enums, dataclass instances, and objects exposing Pydantic
 v2's `model_dump`. Nested values must also be supported. Convert arrays, sets,
 streams and other unsupported inputs to these types first. Results must support
 `copy.deepcopy`; callers receive separate copies so mutations do not alter the
-cached result. Compatibility with repository verdict models has not been tested
-as part of this change.
+cached result. Pipeline integration tests use validated verdict models with mocked model services.
 
 Every wrapper has a private scope by default. To share entries between separately
 created wrappers, supply the same explicit `namespace` and `context`, and use
@@ -165,3 +164,34 @@ python3 -m src.api_layer
 ```
 
 These cache tests use simulated providers and clocks, with no live-model calls.
+
+## Enable it in a pipeline
+
+Canonical Chroma/Ollama evaluation:
+
+```bash
+python -m scripts.evaluate_rag --limit 5 --request-cache
+```
+
+October pipeline:
+
+```bash
+python colab/scripts/compliance_rag_baseline.py \
+  --clauses data/npr-7150-2d-requirements.csv \
+  --benchmark data/npr7150_ground_truth_benchmark.csv \
+  --embedder ollama --judge ollama --request-cache
+```
+
+Both flags create a bounded cache for that invocation and print its summary.
+Combine with `--cache` to retain the existing JSONL resume behavior. Persistent
+cache hits are checked first. Request caching reuses validated model judgements
+for identical text and retrieved context; retrieval still runs. Unique inputs
+will produce misses, so a benchmark without duplicates may show zero hits.
+October request-cache hits also skip the configured between-request sleep.
+
+Programmatic callers pass `request_cache=RequestCache(ttl=300)` to `run_audits`
+or `run_pipeline`. Each invocation creates a private wrapper scope tied to its
+client/judge, so entries are reused within that invocation rather than across
+separate calls to a pipeline. Both pipelines leave request caching disabled
+unless explicitly enabled. Invalid responses are validated before caching;
+failed or ungrounded judgements are retried on the next matching input.
