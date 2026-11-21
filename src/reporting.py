@@ -3,6 +3,7 @@
 import json
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
@@ -50,7 +51,7 @@ def _markdown_table(headers, rows):
     return "\n".join([line(headers), line(["---"] * len(headers)), *(line(row) for row in rows)])
 
 
-def _report(metrics: dict, matrix: pd.DataFrame, model: str, failed: int) -> str:
+def _report(metrics: dict, matrix: pd.DataFrame, model: str, failed: int, mode: str) -> str:
     k = metrics["k"]
     membership = metrics["citation_groundedness"]
     membership_text = "N/A" if membership is None else f"{membership:.2%}"
@@ -69,7 +70,7 @@ def _report(metrics: dict, matrix: pd.DataFrame, model: str, failed: int) -> str
         ("Noncompliance detection (Gap + Partial)", metrics["noncompliance_detection_gap_or_partial"]),
     ]
     return "\n\n".join([
-        "# Canonical RAG evaluation",
+        f"# {'Agent' if mode == 'agent' else 'Canonical RAG'} evaluation",
         f"Evaluated requirements: {metrics['n']} | Model: {model} | Retrieval top-K: {k}",
         f"Failed audits: {failed}. Failed audits are INVALID predictions in the confusion matrix.",
         "## Metrics",
@@ -99,6 +100,7 @@ def save_results(
     matrix: pd.DataFrame,
     *,
     model: str,
+    mode: Literal["rag", "agent"] = "rag",
 ) -> Path:
     """Save the outputs of evaluate() and complete records in benchmark order.
 
@@ -117,7 +119,7 @@ def save_results(
     predictions["retrieved_clause_ids"] = [json.dumps(r.retrieved_clause_ids) for r in ordered]
     audit_json = json.dumps([r.model_dump(mode="json") for r in ordered], indent=2, ensure_ascii=False)
     metrics_json = json.dumps(metrics, indent=2, ensure_ascii=False)
-    report = _report(metrics, matrix, model, sum(r.verdict is None for r in ordered))
+    report = _report(metrics, matrix, model, sum(r.verdict is None for r in ordered), mode)
     path.mkdir(parents=True, exist_ok=True)
     # Exclusive creation provides a second collision check at write time.
     with (path / "audit_records.json").open("x", encoding="utf-8") as handle:

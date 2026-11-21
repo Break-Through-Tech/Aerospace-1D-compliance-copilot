@@ -11,6 +11,7 @@ structured verdicts (`Meets`, `Partial`, `Gap`), and benchmark evaluation.
 | `scripts/setup.sh` | Create/reuse the virtual environment, install Python dependencies, and install missing Ollama/system prerequisites |
 | `scripts/build_index.py`, `scripts/evaluate_rag.py` | Canonical index building and benchmark evaluation |
 | `notebooks/01_preprocessing.ipynb`, `02_vector_indexing.ipynb`, `03_retrieval.ipynb` | Canonical exploration notebooks |
+| `notebooks/04_evaluation_benchmark.ipynb`, `05_agent_evaluation_benchmark.ipynb` | RAG and agent benchmark walkthroughs |
 | `colab/` | Preserved October baseline: modules, local scripts, and Colab notebook |
 | `data/` | Shared source documents, clause corpus, and ground-truth benchmark |
 | `results/october/` | Published October artifacts; preserved unchanged |
@@ -114,12 +115,51 @@ Existing artifact files are never overwritten: choose a new run name for each re
 including a resumed cached evaluation. Destinations under `results/october/` and
 `data/` are protected, and report files cannot collide with the cache path.
 
-## November agent tools (Issue #25)
+## Compliance agent
 
-Tool definitions wrap existing retrieval and judging functions with
-`retrieve_clause`, `check_requirement`, and `log_gap`. See the
-[tool contracts, agent instructions, and manual example](docs/agent.md).
-This step supplies tools and instructions; the agent runtime is future work.
+`src/agent.py` provides a minimal LangChain tool-calling runtime over the canonical
+RAG pipeline. `run_agent()` binds `retrieve_clause`, `check_requirement`, and
+`log_gap` to the configured Ollama model. Each run returns a canonical audit
+record with an optional finding ID, or an explicit error. Final model prose is
+never accepted as a compliance verdict.
+
+See the [agent usage, tool contracts, safeguards, and walkthrough](docs/agent.md).
+The agent uses the existing dependencies in `requirements.txt`; it does not use
+the October baseline or add an orchestration framework.
+
+Use the existing benchmark command with `--agent`:
+
+```bash
+python -m scripts.evaluate_rag --agent --limit 5
+python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
+python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
+```
+
+For an interactive walkthrough similar to the RAG evaluation notebook, open
+[05_agent_evaluation_benchmark.ipynb](notebooks/05_agent_evaluation_benchmark.ipynb).
+It defaults to five requirements and displays agent thinking (when returned),
+model messages, tool activity, metrics, failed predictions, and gap findings.
+Results stay in memory without saving separate evaluation artifacts. A diagnostic
+section before the benchmark checks retrieval and compares thinking/budget settings
+on the first requirement only. Its saved outputs show working direct retrieval,
+but zero agent tool calls before output-token limits at both 600 and 2,048 tokens.
+Restart the kernel to load the updated runtime; stop after diagnostics to avoid
+running the later five-requirement benchmark.
+
+Without `--agent`, the command keeps its canonical RAG behavior and caching.
+Agent mode reuses one loaded store and configured client, but starts fresh tools
+and conversation messages for each requirement. Only requirement IDs and text
+reach the agent; labels, expected clauses, and reference rationales are reserved
+for evaluation. `--k` defaults to 5 and must be 1–10 in agent mode. Every search
+uses that size, including reformulated queries; retrieval metrics use the same
+`k` on the retrieval selected for assessment.
+
+Terminal output and `report.md` identify the mode. Agent failures remain `INVALID`
+predictions, and saved records retain errors and finding IDs. Agent mode makes
+additional model calls to choose tools and finish the conversation. Agent caching
+and resumability are not implemented: combining `--agent` and `--cache` is an
+argument error before services are loaded. Measure benchmark results before
+claiming an improvement; the existing RAG scores below are not agent scores.
 
 ## Verified benchmark and limitations
 
@@ -180,6 +220,12 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 ```bash
 python -m pytest -q
 ```
+
+Verified on November 21, 2026: **256 passed** across the full suite; the focused
+agent, evaluation, reporting, and RAG run had **155 passed**. See
+[agent verification](docs/agent.md#verify-offline)
+for setup, package versions, tool validation, and remaining live-model
+limitations.
 
 Project context: [challenge overview](Challenge-Project-Overview.md),
 [getting started](Getting-Started-for-Fellows.md), and [data documentation](data/README.md).
