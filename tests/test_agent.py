@@ -89,7 +89,7 @@ def test_langchain_generates_named_tool_schemas(setup):
     assert {name: schema["name"] for name, schema in schemas.items()} == {
         name: name for name in ("retrieve_clause", "check_requirement", "log_gap")
     }
-    assert schemas["retrieve_clause"]["parameters"]["additionalProperties"] is False
+    assert all(schema["parameters"]["additionalProperties"] is False for schema in schemas.values())
     assert schemas["check_requirement"]["parameters"]["required"] == ["retrieval_id"]
     assert schemas["log_gap"]["parameters"]["properties"] == {}
 
@@ -178,6 +178,24 @@ def test_meets_cannot_be_logged(setup):
     with pytest.raises(ValueError, match="Only Partial and Gap"):
         invoke(session, "log_gap")
     assert session.result().finding_id is None
+
+
+@pytest.mark.parametrize("arguments", [{"assessment_id": "invented"}, {"verdict": "Gap"}])
+@pytest.mark.parametrize("as_tool_call", [False, True])
+def test_invalid_log_arguments_cannot_create_a_finding(setup, verdict_data, arguments, as_tool_call):
+    store, client = setup
+    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(
+        **{**verdict_data, "verdict": "Gap", "missing_elements": ["Approval"]},
+    )
+    session = agent.AuditTools("r1", "Original", store, client)
+    assess(session)
+    tool_input = call("log_gap", arguments) if as_tool_call else arguments
+    with pytest.raises(ValidationError):
+        session.tools["log_gap"].invoke(tool_input)
+    assert session.result().finding_id is None
+    assert session.result().error
+    assert not invoke(session, "log_gap")["already_logged"]
+    assert session.result().error is None
 
 
 @pytest.mark.parametrize("field,value", [("clause_id", "9.9"), ("evidence", "Invented quote")])

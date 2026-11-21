@@ -46,6 +46,25 @@ class CheckArguments(ToolArguments):
     retrieval_id: NonEmpty
 
 
+class StrictStructuredTool(StructuredTool):
+    """Preserve our explicit schemas, including validation of no-argument tools.
+
+    These tools have no injected arguments to filter. LangChain's generated
+    subset schema loses extra="forbid", and its empty-schema shortcut otherwise
+    discards unexpected arguments before Pydantic can reject them.
+    """
+
+    @property
+    def tool_call_schema(self) -> type[BaseModel]:
+        return self.get_input_schema()
+
+    def _to_args_and_kwargs(self, tool_input, tool_call_id):
+        schema = self.get_input_schema()
+        if not schema.model_fields:
+            schema.model_validate(tool_input)
+        return super()._to_args_and_kwargs(tool_input, tool_call_id)
+
+
 class AgentResult(AuditRecord):
     """Canonical record plus the optional in-memory gap finding identifier."""
 
@@ -71,7 +90,7 @@ class AuditTools:
         self._retrievals = {}
         self._audit_attempted = False
         self.tools = {
-            name: StructuredTool.from_function(handler, name=name, args_schema=schema)
+            name: StrictStructuredTool.from_function(handler, name=name, args_schema=schema)
             for name, handler, schema in (
                 ("retrieve_clause", self._retrieve_clause, RetrieveArguments),
                 ("check_requirement", self._check_requirement, CheckArguments),

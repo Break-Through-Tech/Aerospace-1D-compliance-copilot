@@ -46,6 +46,12 @@ separate LangChain runnable and does not change the audit's structured output.
 
 LangChain `StructuredTool` generates tool definitions and validates arguments
 against strict Pydantic schemas. Unknown fields and wrong types are rejected.
+The local `StrictStructuredTool` subclass preserves the original Pydantic schema
+when advertising tools to the model and validates empty argument schemas before
+LangChain's no-argument shortcut. Without these two overrides, the tested
+LangChain version drops `additionalProperties: false` from advertised schemas
+and silently discards unexpected arguments to `log_gap`. These tools have no
+injected runtime arguments, so their complete schemas can be advertised directly.
 
 | Tool | Arguments | Work and result |
 | --- | --- | --- |
@@ -138,7 +144,9 @@ substituting agent-authored verdicts for canonical validated results.
 
 ## Verify offline
 
-After installing dependencies, with the example environment configured:
+Install both the canonical and October dependencies in a virtual environment
+with `python -m pip install -e '.[october]'`. Configure `.env` from `.env.example`
+(back up an existing `.env` first). From that environment, run:
 
 ```bash
 python -m pytest tests/test_agent.py tests/test_rag.py -q
@@ -151,9 +159,25 @@ functions, including evidence rejection and the canonical retry. No Ollama
 server, embedding model, or model download is needed. Other repository tests
 also exercise disposable Chroma stores and the preserved October baseline.
 
-The implementation environment had no installed LangChain or pytest packages,
-and package downloads were blocked. Its installed versions could therefore not
-be measured and pytest could not run. Relevant tool-binding and structured tool
-APIs were checked against upstream LangChain source. Python compilation and Git
-whitespace checks passed; the full suite and a real Ollama smoke test remain to
-be run in a configured environment.
+Verified on November 21, 2026, using Python 3.12.3 and the example environment:
+
+| Check | Result |
+| --- | --- |
+| `python -m pytest tests/test_agent.py tests/test_rag.py -q` | 83 passed in 1.26 seconds |
+| `python -m pytest -q` | 221 passed in 10.98 seconds |
+| `python -m pip check` | No broken requirements found |
+
+Installed versions were `pytest==9.1.1`, `langchain-core==1.6.9`,
+`langchain-chroma==1.1.0`, `langchain-ollama==1.1.0`, `pydantic==2.14.0`,
+`chromadb==1.5.9`, and `ollama==0.6.3`. These record the verified environment;
+the dependency files remain unpinned.
+
+The imported implementation initially had three failing tests, all caused by the
+tool schema/empty-argument behavior described above. After fixing those failures,
+four additional regression cases verify that invalid `log_gap` arguments cannot
+create a finding after a valid assessment, through either direct invocation or a
+model tool call. A subsequent valid call still logs successfully.
+
+A real Ollama smoke test remains unrun. Offline tests verify the tool protocol,
+validation, and local integration, but do not measure the configured model's
+ability to choose tools, its compliance judgment accuracy, or service timeouts.

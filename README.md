@@ -186,5 +186,10 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 python -m pytest -q
 ```
 
+Verified on November 21, 2026: **221 passed** across the full suite; the focused
+agent/RAG run had **83 passed**. See [agent verification](docs/agent.md#verify-offline)
+for setup, package versions, the tool validation fix, and remaining live-model
+limitations.
+
 Project context: [challenge overview](Challenge-Project-Overview.md),
 [getting started](Getting-Started-for-Fellows.md), and [data documentation](data/README.md).
