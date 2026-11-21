@@ -90,6 +90,7 @@ def test_langchain_generates_named_tool_schemas(setup):
         name: name for name in ("retrieve_clause", "check_requirement", "log_gap")
     }
     assert all(schema["parameters"]["additionalProperties"] is False for schema in schemas.values())
+    assert set(schemas["retrieve_clause"]["parameters"]["properties"]) == {"query"}
     assert schemas["check_requirement"]["parameters"]["required"] == ["retrieval_id"]
     assert schemas["log_gap"]["parameters"]["properties"] == {}
 
@@ -100,6 +101,7 @@ def test_langchain_generates_named_tool_schemas(setup):
     ("retrieve_clause", {"query": "x", "k": 11}),
     ("retrieve_clause", {"query": "x", "k": "5"}),
     ("retrieve_clause", {"query": "x", "k": True}),
+    ("retrieve_clause", {"query": "x", "k": 5}),
     ("retrieve_clause", {"query": "x", "extra": True}),
     ("retrieve_clause", {"query": "x" * 20001}),
     ("check_requirement", {"retrieval_id": " "}),
@@ -377,6 +379,44 @@ def test_runtime_state_is_fresh_for_every_requirement(setup):
     assert result.requirement_id == "r2" and result.requirement_text == "Second"
     assert result.verdict is None and result.finding_id is None and result.retrieved_clause_ids == []
     assert len(histories[0]) == 2
+
+
+@pytest.mark.parametrize("k", [1, 3, 10])
+def test_configured_k_applies_to_reformulated_searches_and_chosen_retrieval(setup, clause_data, k):
+    store, client = setup
+    store.similarity_search.side_effect = [
+        [Document(page_content="First", metadata={**clause_data, "clause": "other"})],
+        [Document(page_content="Second", metadata=clause_data)],
+    ]
+    histories = script(client, [
+        reply(call("retrieve_clause", {"query": "original query"}, "search_1")),
+        reply(call("retrieve_clause", {"query": "focused reformulation"}, "search_2")),
+        reply(call("check_requirement", {"retrieval_id": "retrieval_2"}, "check")),
+        AIMessage(content="Done"),
+    ])
+    result = agent.run_agent("r1", "Original requirement", store, client=client, k=k)
+    assert result.error is None and result.retrieved_clause_ids == ["4.1.2"]
+    assert [(c.args[0], c.kwargs) for c in store.similarity_search.call_args_list] == [
+        ("original query", {"k": k}), ("focused reformulation", {"k": k}),
+    ]
+    assert f"k={k}" in histories[0][0].content
+    prompt = client.with_structured_output.return_value.invoke.call_args.args[0][1]["content"]
+    assert "Original requirement" in prompt
+    assert "focused reformulation" not in prompt
+
+
+@pytest.mark.parametrize("k", [0, 11, True, "3", None, 1.5])
+def test_invalid_k_fails_before_client_creation_or_model_work(setup, monkeypatch, k):
+    store, client = setup
+    create_client = Mock()
+    monkeypatch.setattr(rag, "create_audit_client", create_client)
+    with pytest.raises(ValueError, match="k must be an integer between 1 and 10"):
+        agent.run_agent("r1", "Original", store, k=k)
+    with pytest.raises(ValueError, match="k must be an integer between 1 and 10"):
+        agent.AuditTools("r1", "Original", store, client, k=k)
+    create_client.assert_not_called()
+    client.bind_tools.assert_not_called()
+    store.similarity_search.assert_not_called()
 
 
 def test_default_client_reuses_canonical_configuration(setup, monkeypatch):

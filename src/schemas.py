@@ -1,4 +1,4 @@
-"""Canonical clause and verdict schemas for the current RAG implementation."""
+"""Canonical clause, verdict, record, and agent tool argument schemas."""
 
 from typing import Annotated, Literal
 
@@ -70,3 +70,21 @@ class AuditRecord(BaseModel):
     verdict: AuditVerdict | None = None
     grounded: bool = False
     error: str | None = None
+
+
+class AgentResult(AuditRecord):
+    """Canonical record plus the optional in-memory gap finding identifier."""
+
+    finding_id: str | None = None
+
+
+class ToolArguments(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class RetrieveArguments(ToolArguments):
+    query: NonEmpty = Field(max_length=20000)
+
+
+class CheckArguments(ToolArguments):
+    retrieval_id: NonEmpty

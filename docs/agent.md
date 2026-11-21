@@ -1,8 +1,10 @@
 # Compliance agent
 
-`src/agent.py` contains the instructions, LangChain tools, per-requirement state,
-and synchronous tool-calling runtime. It uses the canonical `src.rag` functions
-and `src.schemas` models; the October baseline remains historical and independent.
+`src/agent.py` contains the LangChain tools, per-requirement state, and synchronous
+tool-calling runtime. Agent instructions live alongside the audit prompts in
+`src/prompts.py`; tool argument schemas and `AgentResult` live with the canonical
+models in `src/schemas.py`. The runtime uses the existing `src.rag` functions;
+the October baseline remains historical and independent.
 
 ## Run one requirement
 
@@ -32,7 +34,8 @@ else:
 `AgentResult` extends the existing `AuditRecord` with `finding_id`. Success has a
 validated `verdict`, `grounded=True`, and `error=None`; `Partial` or `Gap` also
 requires a finding ID. A failed run has an error, no verdict, no finding ID, and
-`grounded=False`. Invalid caller inputs (blank ID/text or invalid `max_steps`)
+`grounded=False`. Invalid caller inputs (blank ID/text, invalid `max_steps`, or
+`k` outside the integer range 1–10)
 raise `ValueError` before any model calls. Service and agent failures become
 failed records. Check `error` before consuming results.
 
@@ -41,6 +44,45 @@ Ollama host, temperature, output budget, and reasoning settings. Pass
 `client=...` to inject an existing `ChatOllama` client or an offline test client.
 The same unbound client performs the canonical audit; binding tools returns a
 separate LangChain runnable and does not change the audit's structured output.
+
+Pass `k=...` to `run_agent()` to set retrieval size (default 5). Every search in
+that run uses the configured size. The model supplies only query text to the
+retrieval tool, so it can reformulate a query and choose between two retrievals
+without changing the size. Direct `AuditTools` callers configure the same `k`
+keyword when constructing the session.
+
+## Evaluate a benchmark
+
+After the canonical setup, use the existing command:
+
+```bash
+python -m scripts.evaluate_rag --agent --limit 5
+python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
+python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
+```
+
+The benchmark loader returns labeled rows for scoring and separate ID/text pairs
+for execution. After applying `--limit`, the command loads one Chroma store and
+creates one configured Ollama client. Each pair goes to a new `run_agent()` call
+with the shared store/client and configured `k`; labels, gold clause IDs, and
+reference rationales never go to the agent. The command prints progress after
+each completed requirement, including failures.
+
+The existing evaluator aligns results by requirement ID and counts failures as
+`INVALID` predictions. Retrieval Hit@K uses the same configured `k` and the
+retrieval chosen for assessment, rather than merging searches. Runs that never
+select an assessment retrieval have empty recorded clause IDs and miss retrieval
+metrics. The existing reporter saves the same five artifacts, including errors
+and agent finding IDs in complete records. The terminal and `report.md` identify
+Agent versus Canonical RAG mode; metric formulas and file formats are shared.
+
+Without `--agent`, evaluation retains the RAG batch runner and existing cache
+behavior, including support for positive `k` values above 10. Agent mode does not
+support caching or resumability: `--agent --cache ...` is rejected before reading
+the benchmark or initializing services. Tool selection and conversation completion
+add model calls beyond the canonical audit, so expect additional work per
+requirement. No agent benchmark scores have been measured here; improvement over
+RAG must be established by running and reviewing evaluations.
 
 ## Tools
 
@@ -55,7 +97,7 @@ injected runtime arguments, so their complete schemas can be advertised directly
 
 | Tool | Arguments | Work and result |
 | --- | --- | --- |
-| `retrieve_clause` | `query`: nonblank string, at most 20,000 characters; `k`: integer 1–10, default 5 | Calls `rag.retrieve_clauses(query, vector_store, k=k)`; stores actual `Clause` objects and returns a retrieval ID and canonical clause metadata |
+| `retrieve_clause` | `query`: nonblank string, at most 20,000 characters | Calls `rag.retrieve_clauses(query, vector_store, k=configured_k)`; stores actual `Clause` objects and returns a retrieval ID and canonical clause metadata |
 | `check_requirement` | `retrieval_id`: nonblank string | Calls `rag.audit_requirement(original_text, stored_clauses, client=client)` and stores/returns the validated assessment |
 | `log_gap` | None | Marks the one stored `Partial` or `Gap` assessment as logged and returns `finding_id` and `already_logged` |
 
@@ -133,7 +175,7 @@ model did not finish.
 These limits bound requests, not wall-clock time; service calls depend on the
 client's timeout settings. Context length remains managed by Ollama. The agent
 does not implement context-truncation detection, persistent conversations,
-batch CLI integration, long-term memory, or baseline-versus-agent evaluation.
+long-term memory, or agent caching/resumability.
 Existing README benchmark numbers describe canonical RAG, not this agent.
 
 Grounding verifies evidence provenance, not judgment accuracy. Each assessment
@@ -149,7 +191,8 @@ with `python -m pip install -e '.[october]'`. Configure `.env` from `.env.exampl
 (back up an existing `.env` first). From that environment, run:
 
 ```bash
-python -m pytest tests/test_agent.py tests/test_rag.py -q
+python -m pytest tests/test_agent.py tests/test_evaluate_rag.py \
+  tests/test_evaluation.py tests/test_reporting.py tests/test_rag.py -q
 python -m pytest -q
 ```
 
@@ -163,8 +206,8 @@ Verified on November 21, 2026, using Python 3.12.3 and the example environment:
 
 | Check | Result |
 | --- | --- |
-| `python -m pytest tests/test_agent.py tests/test_rag.py -q` | 83 passed in 1.26 seconds |
-| `python -m pytest -q` | 221 passed in 10.98 seconds |
+| Focused command above (agent, evaluation, reporting, RAG) | 142 passed in 3.17 seconds |
+| `python -m pytest -q` | 243 passed in 10.54 seconds |
 | `python -m pip check` | No broken requirements found |
 
 Installed versions were `pytest==9.1.1`, `langchain-core==1.6.9`,
@@ -177,6 +220,13 @@ tool schema/empty-argument behavior described above. After fixing those failures
 four additional regression cases verify that invalid `log_gap` arguments cannot
 create a finding after a valid assessment, through either direct invocation or a
 model tool call. A subsequent valid call still logs successfully.
+
+Benchmark integration tests run the real agent, loader, evaluator, and reporter
+with mocked services. They cover shared resources with isolated conversations,
+gold-data separation, limits, fixed retrieval size across reformulations, progress,
+failed predictions and findings in reports, mode labels, and rejection of agent
+caching before initialization. Existing RAG cache tests also run with `k=11` to
+check that the agent's upper bound does not restrict RAG-only evaluation.
 
 A real Ollama smoke test remains unrun. Offline tests verify the tool protocol,
 validation, and local integration, but do not measure the configured model's

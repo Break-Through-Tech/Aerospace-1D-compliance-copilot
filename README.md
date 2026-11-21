@@ -126,6 +126,29 @@ See the [agent usage, tool contracts, safeguards, and walkthrough](docs/agent.md
 The agent uses the existing dependencies in `requirements.txt`; it does not use
 the October baseline or add an orchestration framework.
 
+Use the existing benchmark command with `--agent`:
+
+```bash
+python -m scripts.evaluate_rag --agent --limit 5
+python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
+python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
+```
+
+Without `--agent`, the command keeps its canonical RAG behavior and caching.
+Agent mode reuses one loaded store and configured client, but starts fresh tools
+and conversation messages for each requirement. Only requirement IDs and text
+reach the agent; labels, expected clauses, and reference rationales are reserved
+for evaluation. `--k` defaults to 5 and must be 1–10 in agent mode. Every search
+uses that size, including reformulated queries; retrieval metrics use the same
+`k` on the retrieval selected for assessment.
+
+Terminal output and `report.md` identify the mode. Agent failures remain `INVALID`
+predictions, and saved records retain errors and finding IDs. Agent mode makes
+additional model calls to choose tools and finish the conversation. Agent caching
+and resumability are not implemented: combining `--agent` and `--cache` is an
+argument error before services are loaded. Measure benchmark results before
+claiming an improvement; the existing RAG scores below are not agent scores.
+
 ## Verified benchmark and limitations
 
 The November 7, 2026 evaluation used `qwen3:4b`, `nomic-embed-text`, top-k 5,
@@ -186,9 +209,10 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 python -m pytest -q
 ```
 
-Verified on November 21, 2026: **221 passed** across the full suite; the focused
-agent/RAG run had **83 passed**. See [agent verification](docs/agent.md#verify-offline)
-for setup, package versions, the tool validation fix, and remaining live-model
+Verified on November 21, 2026: **243 passed** across the full suite; the focused
+agent, evaluation, reporting, and RAG run had **142 passed**. See
+[agent verification](docs/agent.md#verify-offline)
+for setup, package versions, tool validation, and remaining live-model
 limitations.
 
 Project context: [challenge overview](Challenge-Project-Overview.md),
