@@ -175,6 +175,19 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 [report](results/october/report.md), [metrics](results/october/metrics.json), and
 [provenance](results/october/README.md).
 
+## Request cache
+
+`src/api_layer.py` adds an opt-in, in-memory request cache around the teammate's
+rate limiting and retry wrapper. Repeated requests reuse completed results and
+bypass the provider and rate limiter. Run the offline demo with no dependencies:
+
+```bash
+python3 -m scripts.demo_request_cache
+```
+
+See [request cache usage](docs/request-cache.md) for setup, expiration, concurrency,
+statistics and tests. Existing pipelines retain their current caching behavior.
+
 ## Tests
 
 ```bash
