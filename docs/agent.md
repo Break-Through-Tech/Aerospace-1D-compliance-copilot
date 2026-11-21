@@ -51,6 +51,44 @@ retrieval tool, so it can reformulate a query and choose between two retrievals
 without changing the size. Direct `AuditTools` callers configure the same `k`
 keyword when constructing the session.
 
+## Inspect agent messages
+
+For a small debugging run, pass `verbose=True` to `run_agent()`. It prints each
+turn, returned thinking (if any), model text, proposed tool calls, and tool
+results/errors. It also prints the generation stop reason, output-token count,
+and tool-call count. Output appears after each call completes; it is not token
+streaming. Final model prose still cannot replace the validated audit result.
+
+The shared client defaults to `reasoning=False`. Pass `reasoning=True` to
+`run_agent()` to enable Ollama thinking for agent turns only, or `False` to
+disable it explicitly. The default `None` preserves the client's setting. This
+override is not passed to the structured audit and does not mutate the shared
+client. Models must support thinking to return it. Thinking consumes the model's
+output budget and can change tool choices or increase latency, so compare these
+debug runs separately from reasoning-disabled runs.
+
+Pass `agent_num_predict=2048` to raise only the agent turns' output budget. A
+shallow client copy shares the existing transport while preserving the original
+client and its structured audit budget. Omit this option to keep existing settings;
+supplied budgets must be positive integers.
+
+`notebooks/05_agent_evaluation_benchmark.ipynb` includes a diagnostic section before
+the five-requirement benchmark. It checks direct retrieval, inspects the installed
+model/version/template, and runs only the first requirement at three settings:
+thinking off with 600 tokens, off with 2,048, and on with 2,048. Restart the kernel
+to load the new options, then stop after these cells to avoid the later benchmark.
+The notebook keeps results in memory without saving separate evaluation artifacts.
+
+The live diagnostic returned five clauses directly, beginning with `4.1.2`. All
+three agent settings returned zero tool calls and `done_reason=length`, consuming
+their full budgets. Increasing the budget did not resolve the tool-calling failure.
+The inspected Ollama 0.40.2 `qwen3:4b` template appends an opening `<think>` tag
+in its final-user-message branch without checking whether thinking is enabled.
+That is a possible contributor to the observed planning loop, not a proven sole
+cause. No installed model/template or canonical audit settings were changed.
+The notebook preserves the earlier five-requirement outputs alongside these
+single-requirement diagnostics; the benchmark was not re-run.
+
 ## Evaluate a benchmark
 
 After the canonical setup, use the existing command:
@@ -206,8 +244,8 @@ Verified on November 21, 2026, using Python 3.12.3 and the example environment:
 
 | Check | Result |
 | --- | --- |
-| Focused command above (agent, evaluation, reporting, RAG) | 142 passed in 3.17 seconds |
-| `python -m pytest -q` | 243 passed in 10.54 seconds |
+| Focused command above (agent, evaluation, reporting, RAG) | 155 passed in 3.58 seconds |
+| `python -m pytest -q` | 256 passed in 11.03 seconds |
 | `python -m pip check` | No broken requirements found |
 
 Installed versions were `pytest==9.1.1`, `langchain-core==1.6.9`,
@@ -227,7 +265,13 @@ gold-data separation, limits, fixed retrieval size across reformulations, progre
 failed predictions and findings in reports, mode labels, and rejection of agent
 caching before initialization. Existing RAG cache tests also run with `k=11` to
 check that the agent's upper bound does not restrict RAG-only evaluation.
+Message-display tests verify returned thinking/text, tool results and errors,
+silent defaults, and per-turn reasoning overrides without changing audit settings
+or accepting final model text as a verdict. Diagnostic tests also verify token
+metadata, positive agent-only budgets, and preservation of the audit client.
 
-A real Ollama smoke test remains unrun. Offline tests verify the tool protocol,
-validation, and local integration, but do not measure the configured model's
-ability to choose tools, its compliance judgment accuracy, or service timeouts.
+A live Ollama diagnostic has now run for one requirement, as described above.
+The larger benchmark has not been re-run, and the agent's live tool-calling
+failure remains unresolved. Offline tests verify the tool protocol, validation,
+and local integration; they do not establish model judgment accuracy or
+service-timeout behavior.

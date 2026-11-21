@@ -11,6 +11,7 @@ structured verdicts (`Meets`, `Partial`, `Gap`), and benchmark evaluation.
 | `scripts/setup.sh` | Create/reuse the virtual environment, install Python dependencies, and install missing Ollama/system prerequisites |
 | `scripts/build_index.py`, `scripts/evaluate_rag.py` | Canonical index building and benchmark evaluation |
 | `notebooks/01_preprocessing.ipynb`, `02_vector_indexing.ipynb`, `03_retrieval.ipynb` | Canonical exploration notebooks |
+| `notebooks/04_evaluation_benchmark.ipynb`, `05_agent_evaluation_benchmark.ipynb` | RAG and agent benchmark walkthroughs |
 | `colab/` | Preserved October baseline: modules, local scripts, and Colab notebook |
 | `data/` | Shared source documents, clause corpus, and ground-truth benchmark |
 | `results/october/` | Published October artifacts; preserved unchanged |
@@ -134,6 +135,17 @@ python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
 python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
 ```
 
+For an interactive walkthrough similar to the RAG evaluation notebook, open
+[05_agent_evaluation_benchmark.ipynb](notebooks/05_agent_evaluation_benchmark.ipynb).
+It defaults to five requirements and displays agent thinking (when returned),
+model messages, tool activity, metrics, failed predictions, and gap findings.
+Results stay in memory without saving separate evaluation artifacts. A diagnostic
+section before the benchmark checks retrieval and compares thinking/budget settings
+on the first requirement only. Its saved outputs show working direct retrieval,
+but zero agent tool calls before output-token limits at both 600 and 2,048 tokens.
+Restart the kernel to load the updated runtime; stop after diagnostics to avoid
+running the later five-requirement benchmark.
+
 Without `--agent`, the command keeps its canonical RAG behavior and caching.
 Agent mode reuses one loaded store and configured client, but starts fresh tools
 and conversation messages for each requirement. Only requirement IDs and text
@@ -209,8 +221,8 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 python -m pytest -q
 ```
 
-Verified on November 21, 2026: **243 passed** across the full suite; the focused
-agent, evaluation, reporting, and RAG run had **142 passed**. See
+Verified on November 21, 2026: **256 passed** across the full suite; the focused
+agent, evaluation, reporting, and RAG run had **155 passed**. See
 [agent verification](docs/agent.md#verify-offline)
 for setup, package versions, tool validation, and remaining live-model
 limitations.

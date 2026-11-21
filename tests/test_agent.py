@@ -48,7 +48,7 @@ def script(client, responses):
     histories = []
     responses = iter(responses)
 
-    def respond(messages):
+    def respond(messages, **kwargs):
         histories.append(copy.deepcopy(messages))
         value = next(responses)
         if isinstance(value, Exception):
@@ -256,6 +256,100 @@ def test_runtime_binds_tools_and_preserves_tool_messages(setup, verdict_data):
         assert isinstance(history[-1], ToolMessage)
         assert history[-1].tool_call_id == expected_id
         assert json.loads(history[-1].content)["ok"]
+
+
+@pytest.mark.parametrize("reasoning", [None, False, True])
+def test_verbose_displays_returned_thinking_messages_and_tools(setup, capsys, reasoning):
+    store, client = setup
+    client.reasoning = False
+    responses = workflow()
+    responses[0].additional_kwargs["reasoning_content"] = "Search for the relevant obligation."
+    responses[0].response_metadata = {"done_reason": "stop", "eval_count": 42}
+    responses[0].content = "I will retrieve supporting clauses."
+    script(client, responses)
+    result = agent.run_agent("r1", "Original", store, client=client, verbose=True, reasoning=reasoning)
+    assert result.error is None and result.verdict.verdict == "Meets"
+    output = capsys.readouterr().out
+    for expected in (
+        "[r1] Agent turn 1...", "[r1] Thinking:\nSearch for the relevant obligation.",
+        "Generation: done_reason=stop, output_tokens=42, tool_calls=1",
+        "Agent message:\nI will retrieve supporting clauses.",
+        'Tool call: retrieve_clause {"query": "focused search"}',
+        "Tool result (success, retrieve_clause):", '"retrieval_id": "retrieval_1"',
+        "Tool call: check_requirement", "Tool result (success, check_requirement):",
+        "Agent message:\nFinished", "No tool calls returned.",
+    ):
+        assert expected in output
+    expected_options = {} if reasoning is None else {"reasoning": reasoning}
+    assert all(c.kwargs == expected_options for c in client.bind_tools.return_value.invoke.call_args_list)
+    assert client.reasoning is False
+    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    # Reasoning applies to agent turns, never to the structured audit invocation.
+    assert client.with_structured_output.return_value.invoke.call_args.kwargs == {}
+
+
+def test_message_display_is_off_by_default_even_if_reasoning_is_requested(setup, capsys):
+    store, client = setup
+    script(client, workflow())
+    assert agent.run_agent("r1", "Original", store, client=client, reasoning=True).error is None
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("metadata,usage,expected", [
+    ({"done_reason": "length", "eval_count": 600}, None, "done_reason=length, output_tokens=600"),
+    ({"done_reason": "stop"}, {"input_tokens": 10, "output_tokens": 12, "total_tokens": 22},
+     "done_reason=stop, output_tokens=12"),
+])
+def test_verbose_reports_generation_limits_without_fabricating_a_verdict(setup, capsys, metadata, usage, expected):
+    store, client = setup
+    script(client, [AIMessage(content="", response_metadata=metadata, usage_metadata=usage)])
+    result = agent.run_agent("r1", "Original", store, client=client, verbose=True)
+    assert result.error and result.verdict is None
+    assert expected in capsys.readouterr().out
+    store.similarity_search.assert_not_called()
+
+
+def test_agent_output_budget_override_preserves_shared_client_and_audit(setup):
+    store, client = setup
+    client.num_predict = 600
+    agent_client = Mock()
+    agent_client.bind_tools.return_value = client.bind_tools.return_value
+    client.model_copy.return_value = agent_client
+    script(client, workflow())
+    result = agent.run_agent("r1", "Original", store, client=client, agent_num_predict=2048)
+    assert result.error is None
+    client.model_copy.assert_called_once_with(update={"num_predict": 2048})
+    client.bind_tools.assert_not_called()
+    agent_client.bind_tools.assert_called_once()
+    assert client.num_predict == 600
+    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    agent_client.with_structured_output.assert_not_called()
+    assert client.with_structured_output.return_value.invoke.call_args.kwargs == {}
+
+
+@pytest.mark.parametrize("budget", [0, -1, True, "2048", 1.5])
+def test_invalid_agent_budget_fails_before_client_creation(setup, monkeypatch, budget):
+    store, _ = setup
+    create = Mock()
+    monkeypatch.setattr(rag, "create_audit_client", create)
+    with pytest.raises(ValueError, match="agent_num_predict must be a positive integer or None"):
+        agent.run_agent("r1", "Original", store, agent_num_predict=budget)
+    create.assert_not_called()
+    store.similarity_search.assert_not_called()
+
+
+def test_verbose_exposes_tool_errors_and_final_text_without_accepting_fabricated_verdict(setup, capsys):
+    store, client = setup
+    script(client, [reply(call("unknown")), AIMessage(content="The requirement Meets the standard.")])
+    result = agent.run_agent("r1", "Original", store, client=client, verbose=True)
+    assert result.verdict is None and result.error
+    output = capsys.readouterr().out
+    assert "Tool result (error, unknown):" in output
+    assert "Unknown tool: unknown" in output
+    assert "Agent message:\nThe requirement Meets the standard." in output
+    assert "No tool calls returned." in output
+    assert "Thinking:" not in output
+    client.with_structured_output.assert_not_called()
 
 
 @pytest.mark.parametrize("log", [False, True])

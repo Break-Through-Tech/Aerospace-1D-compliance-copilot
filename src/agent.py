@@ -129,6 +129,9 @@ def run_agent(
     client: ChatOllama | None = None,
     k: int = 5,
     max_steps: int = 8,
+    verbose: bool = False,
+    reasoning: bool | None = None,
+    agent_num_predict: int | None = None,
 ) -> AgentResult:
     """Return a stored, validated assessment or an explicit failed record.
 
@@ -138,6 +141,12 @@ def run_agent(
     for offline tests; otherwise use the canonical Ollama settings and model.
     k fixes retrieval size for every search (1–10, default 5); the model chooses
     query text and which retrieval to audit, but cannot change that size.
+    verbose displays returned model text, thinking (when present), and tool
+    activity after each call completes. reasoning overrides Ollama thinking for
+    agent turns only; None retains the client's setting. Audit settings are
+    unchanged. These diagnostics do not change which verdict is accepted.
+    agent_num_predict optionally sets a positive output-token budget for agent
+    turns only, using a shallow client copy that shares the existing transport.
     """
     if not isinstance(requirement_id, str) or not requirement_id.strip():
         raise ValueError("requirement_id must be a nonempty string")
@@ -147,13 +156,18 @@ def run_agent(
         raise ValueError("max_steps must be a positive integer")
     if type(k) is not int or not 1 <= k <= MAX_RETRIEVAL_K:
         raise ValueError(f"k must be an integer between 1 and {MAX_RETRIEVAL_K}")
+    if agent_num_predict is not None and (type(agent_num_predict) is not int or agent_num_predict < 1):
+        raise ValueError("agent_num_predict must be a positive integer or None")
 
     # Keep configuration and service failures explicit, including client creation.
     try:
         if client is None:
             client = rag.create_audit_client()
         session = AuditTools(requirement_id, requirement_text, vector_store, client, k=k)
-        model = client.bind_tools(list(session.tools.values()))
+        agent_client = client if agent_num_predict is None else client.model_copy(
+            update={"num_predict": agent_num_predict},
+        )
+        model = agent_client.bind_tools(list(session.tools.values()))
         messages = [
             SystemMessage(content=AGENT_INSTRUCTIONS + f"\nRetrieval size is fixed at k={k}."),
             HumanMessage(content=json.dumps({
@@ -161,8 +175,27 @@ def run_agent(
             })),
         ]
         call_ids = set()
-        for _ in range(max_steps):
-            response = model.invoke(messages)
+        for turn in range(1, max_steps + 1):
+            if verbose:
+                print(f"[{requirement_id}] Agent turn {turn}...", flush=True)
+            invoke_options = {} if reasoning is None else {"reasoning": reasoning}
+            response = model.invoke(messages, **invoke_options)
+            if verbose and isinstance(response, AIMessage):
+                metadata = response.response_metadata
+                usage = response.usage_metadata or {}
+                output_tokens = metadata.get("eval_count", usage.get("output_tokens", "unknown"))
+                print(f"[{requirement_id}] Generation: done_reason={metadata.get('done_reason', 'unknown')}, "
+                      f"output_tokens={output_tokens}, tool_calls={len(response.tool_calls)}", flush=True)
+                thinking = response.additional_kwargs.get("reasoning_content")
+                if thinking:
+                    print(f"[{requirement_id}] Thinking:\n{thinking}", flush=True)
+                if response.content:
+                    print(f"[{requirement_id}] Agent message:\n{response.content}", flush=True)
+                for tool_call in response.tool_calls:
+                    print(f"[{requirement_id}] Tool call: {tool_call['name']} "
+                          f"{json.dumps(tool_call['args'], ensure_ascii=False)}", flush=True)
+                if not response.tool_calls:
+                    print(f"[{requirement_id}] No tool calls returned.", flush=True)
             if not isinstance(response, AIMessage) or response.invalid_tool_calls:
                 raise ValueError("Model returned an invalid tool-call response")
             messages.append(response)
@@ -186,6 +219,9 @@ def run_agent(
                         tool_call_id=call["id"], status="error",
                     )
                 messages.append(result)
+                if verbose:
+                    print(f"[{requirement_id}] Tool result ({result.status}, {call['name']}):\n"
+                          f"{result.content}", flush=True)
         return session.result("Agent model-turn limit reached")
     except Exception as exc:
         return AgentResult(
