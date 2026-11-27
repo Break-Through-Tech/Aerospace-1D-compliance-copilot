@@ -1,4 +1,5 @@
 pandas
+langchain>=1.3.14,<2
 langchain-core
 langchain-chroma
 langchain-ollama

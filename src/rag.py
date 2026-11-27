@@ -12,12 +12,12 @@ from pydantic import ValidationError
 
 from src.config import OLLAMA_HOST, GENERATION_MODEL
 from src.prompts import SYSTEM_PROMPT, RETRY_FEEDBACK, build_user_prompt
-from src.schemas import AuditRecord, AuditVerdict, Clause
+from src.schemas import AuditDecision, AuditRecord, AuditVerdict, Clause
 from src.cache import append_record, cache_key, client_settings, index_fingerprint, load_cache, successful
 
 
 class CitationValidationError(ValueError):
-    """The verdict cites an unretrieved clause or evidence outside its text."""
+    """The selected clause ID does not identify one retrieved source record."""
 
 
 def create_audit_client(model: str = GENERATION_MODEL) -> ChatOllama:
@@ -64,6 +64,8 @@ def audit_requirement(
     An injected ChatOllama instance supplies its own model and generation settings;
     model configures the default instance only. Ollama manages context length;
     the application does not independently detect source truncation.
+    The model returns AuditDecision fields. Python copies the full requirement
+    text from the uniquely selected retrieved clause into AuditVerdict.evidence.
     """
     prompt = build_user_prompt(requirement_text, clauses)
     if client is None:
@@ -74,21 +76,19 @@ def audit_requirement(
     ]
     retry_messages = [*messages, {"role": "user", "content": RETRY_FEEDBACK}]
     structured_client = client.with_structured_output(
-        AuditVerdict, method="json_schema"
+        AuditDecision, method="json_schema"
     )
     for attempt in range(2):
         try:
             verdict = structured_client.invoke(messages)
-        except (ValidationError, OutputParserException) as exc:
-            error = exc
-        else:
             selected_clauses = [clause for clause in clauses if clause.clause == verdict.clause_id]
             if not selected_clauses:
-                error = CitationValidationError("Cited clause is not in the retrieved set")
-            elif not any(verdict.evidence in clause.requirement for clause in selected_clauses):
-                error = CitationValidationError("Evidence must be an exact excerpt of the selected clause's requirement")
-            else:
-                return verdict
+                raise CitationValidationError("Cited clause is not in the retrieved set")
+            if len(selected_clauses) != 1:
+                raise CitationValidationError("Cited clause ID must identify exactly one retrieved clause")
+            return AuditVerdict(**verdict.model_dump(), evidence=selected_clauses[0].requirement)
+        except (ValidationError, OutputParserException, CitationValidationError) as exc:
+            error = exc
 
         if attempt == 1:
             raise error
@@ -130,13 +130,13 @@ def run_audits(
             "k": k,
             "system_prompt": SYSTEM_PROMPT,
             "retry_feedback": RETRY_FEEDBACK,
-            "schemas": [schema.model_json_schema() for schema in (Clause, AuditVerdict, AuditRecord)],
+            "schemas": [schema.model_json_schema() for schema in (Clause, AuditDecision, AuditVerdict, AuditRecord)],
             "libraries": {package: version(package) for package in (
                 "pydantic", "pydantic-core", "langchain-ollama", "langchain-chroma", "chromadb",
             )},
             "implementation": [inspect.getsource(obj) for obj in (
                 build_user_prompt, audit_requirement, retrieve_clauses,
-                Clause, AuditVerdict, AuditRecord,
+                Clause, AuditDecision, AuditVerdict, AuditRecord,
             )],
             "index": index_fingerprint(vector_store),
         })

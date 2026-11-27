@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from src import rag
 from src.config import DATA_PATH
 from src.preprocessing import create_documents, load_requirements
-from src.schemas import AuditVerdict, Clause
+from src.schemas import AuditDecision, Clause
 
 
 @pytest.fixture(scope="module")
@@ -32,8 +32,8 @@ def retry_messages(text, clauses):
 def test_retry_keeps_complete_source_and_excludes_unbounded_failure(repaired_clauses, failure_kind):
     client = Mock()
     first = repaired_clauses[0]
-    valid = AuditVerdict(
-        clause_id=first.clause, evidence=first.requirement[-80:],
+    valid = AuditDecision(
+        clause_id=first.clause,
         missing_elements=["Not assessed"], rationale="Synthetic citation test.", verdict="Partial",
     )
     unbounded = "FAILED_OUTPUT_SENTINEL " * 10000
@@ -41,13 +41,15 @@ def test_retry_keeps_complete_source_and_excludes_unbounded_failure(repaired_cla
         failure = OutputParserException(unbounded, llm_output=unbounded)
     elif failure_kind == "schema":
         with pytest.raises(ValidationError) as caught:
-            AuditVerdict.model_validate({"verdict": unbounded})
+            AuditDecision.model_validate({"verdict": unbounded})
         failure = caught.value
     else:
-        failure = valid.model_copy(update={"evidence": unbounded, "rationale": unbounded})
+        failure = valid.model_copy(update={"clause_id": unbounded, "rationale": unbounded})
     invoke = client.with_structured_output.return_value.invoke
     invoke.side_effect = [failure, valid]
-    assert rag.audit_requirement("Maintain requirements.", repaired_clauses, client=client) == valid
+    result = rag.audit_requirement("Maintain requirements.", repaired_clauses, client=client)
+    assert result.model_dump(exclude={"evidence"}) == valid.model_dump()
+    assert result.evidence == first.requirement
     original, retry = [call.args[0] for call in invoke.call_args_list]
     assert retry == retry_messages("Maintain requirements.", repaired_clauses)
     assert retry[:2] == original

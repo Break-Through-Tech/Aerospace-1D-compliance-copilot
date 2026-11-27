@@ -7,19 +7,23 @@ from unittest.mock import Mock
 import pytest
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ValidationError
 
 from src import agent, rag
-from src.schemas import AuditVerdict
+from src.schemas import AuditDecision
 
 
 @pytest.fixture
-def setup(clause_data, verdict_data):
+def setup(clause_data, decision_data):
     store = Mock()
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
     client = Mock()
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(**verdict_data)
+    copied_client = Mock()
+    copied_client.bind_tools = client.bind_tools
+    client.model_copy.return_value = copied_client
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(**decision_data)
     return store, client
 
 
@@ -53,7 +57,7 @@ def script(client, responses):
         value = next(responses)
         if isinstance(value, Exception):
             raise value
-        return value
+        return copy.deepcopy(value)
 
     client.bind_tools.return_value.invoke.side_effect = respond
     return histories
@@ -74,7 +78,7 @@ def test_tools_use_canonical_pipeline_and_original_requirement(setup):
     session = agent.AuditTools("r1", "Original requirement", store, client)
     result = assess(session)
     store.similarity_search.assert_called_once_with("focused search", k=5)
-    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    client.with_structured_output.assert_called_once_with(AuditDecision, method="json_schema")
     prompt = client.with_structured_output.return_value.invoke.call_args.args[0][1]["content"]
     assert "Original requirement" in prompt
     assert "focused search" not in prompt
@@ -128,7 +132,7 @@ def test_unknown_retrieval_and_missing_assessment_rejected(setup):
     assert session.result().error
 
 
-def test_chosen_retrieval_cannot_be_replaced_by_later_search(setup, clause_data, verdict_data):
+def test_chosen_retrieval_cannot_be_replaced_by_later_search(setup, clause_data, decision_data):
     store, client = setup
     second = {**clause_data, "clause": "4.1.3"}
     store.similarity_search.side_effect = [
@@ -140,7 +144,7 @@ def test_chosen_retrieval_cannot_be_replaced_by_later_search(setup, clause_data,
     retrieve(session)
     with pytest.raises(ValueError, match="Retrieval limit"):
         retrieve(session)
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(**verdict_data)
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(**decision_data)
     result = invoke(session, "check_requirement", retrieval_id=first_id)
     assert result["retrieved_clause_ids"] == ["4.1.2"]
     with pytest.raises(ValueError, match="already attempted"):
@@ -150,10 +154,10 @@ def test_chosen_retrieval_cannot_be_replaced_by_later_search(setup, clause_data,
 
 
 @pytest.mark.parametrize("label", ["Partial", "Gap"])
-def test_logging_keeps_validated_assessment_isolated_and_idempotent(setup, verdict_data, label):
+def test_logging_keeps_validated_assessment_isolated_and_idempotent(setup, decision_data, label):
     store, client = setup
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(
-        **{**verdict_data, "verdict": label, "missing_elements": ["Approval"]},
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(
+        **{**decision_data, "verdict": label, "missing_elements": ["Approval"]},
     )
     session = agent.AuditTools("r1", "Original", store, client)
     assessment = assess(session)
@@ -184,10 +188,10 @@ def test_meets_cannot_be_logged(setup):
 
 @pytest.mark.parametrize("arguments", [{"assessment_id": "invented"}, {"verdict": "Gap"}])
 @pytest.mark.parametrize("as_tool_call", [False, True])
-def test_invalid_log_arguments_cannot_create_a_finding(setup, verdict_data, arguments, as_tool_call):
+def test_invalid_log_arguments_cannot_create_a_finding(setup, decision_data, arguments, as_tool_call):
     store, client = setup
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(
-        **{**verdict_data, "verdict": "Gap", "missing_elements": ["Approval"]},
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(
+        **{**decision_data, "verdict": "Gap", "missing_elements": ["Approval"]},
     )
     session = agent.AuditTools("r1", "Original", store, client)
     assess(session)
@@ -200,11 +204,11 @@ def test_invalid_log_arguments_cannot_create_a_finding(setup, verdict_data, argu
     assert session.result().error is None
 
 
-@pytest.mark.parametrize("field,value", [("clause_id", "9.9"), ("evidence", "Invented quote")])
-def test_canonical_grounding_failures_never_become_assessments(setup, verdict_data, field, value):
+@pytest.mark.parametrize("field,value", [("clause_id", "9.9")])
+def test_canonical_grounding_failures_never_become_assessments(setup, decision_data, field, value):
     store, client = setup
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(
-        **{**verdict_data, field: value},
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(
+        **{**decision_data, field: value},
     )
     session = agent.AuditTools("r1", "Original", store, client)
     retrieval_id = retrieve(session)
@@ -216,10 +220,10 @@ def test_canonical_grounding_failures_never_become_assessments(setup, verdict_da
     assert session.result().verdict is None
 
 
-def test_canonical_retry_can_correct_an_invalid_verdict(setup, verdict_data):
+def test_canonical_retry_can_correct_an_invalid_verdict(setup, decision_data):
     store, client = setup
     client.with_structured_output.return_value.invoke.side_effect = [
-        AuditVerdict(**{**verdict_data, "evidence": "Invented"}), AuditVerdict(**verdict_data),
+        AuditDecision(**{**decision_data, "clause_id": "9.9"}), AuditDecision(**decision_data),
     ]
     session = agent.AuditTools("r1", "Original", store, client)
     assert assess(session)["grounded"]
@@ -240,12 +244,12 @@ def test_retrieval_failures_remain_failures(setup, failure):
     assert session.result().error and session.result().verdict is None
 
 
-def test_runtime_binds_tools_and_preserves_tool_messages(setup, verdict_data):
+def test_runtime_binds_tools_and_preserves_tool_messages(setup, decision_data):
     store, client = setup
     histories = script(client, workflow())
     result = agent.run_agent("r1", "Original", store, client=client)
     assert result.error is None and result.grounded
-    assert result.verdict.model_dump() == verdict_data
+    assert result.verdict.model_dump(exclude={"evidence"}) == decision_data
     assert [tool.name for tool in client.bind_tools.call_args.args[0]] == [
         "retrieve_clause", "check_requirement", "log_gap",
     ]
@@ -271,19 +275,18 @@ def test_verbose_displays_returned_thinking_messages_and_tools(setup, capsys, re
     assert result.error is None and result.verdict.verdict == "Meets"
     output = capsys.readouterr().out
     for expected in (
-        "[r1] Agent turn 1...", "[r1] Thinking:\nSearch for the relevant obligation.",
-        "Generation: done_reason=stop, output_tokens=42, tool_calls=1",
-        "Agent message:\nI will retrieve supporting clauses.",
-        'Tool call: retrieve_clause {"query": "focused search"}',
-        "Tool result (success, retrieve_clause):", '"retrieval_id": "retrieval_1"',
-        "Tool call: check_requirement", "Tool result (success, check_requirement):",
-        "Agent message:\nFinished", "No tool calls returned.",
+        "Search for the relevant obligation.", "'done_reason': 'stop'", "'eval_count': 42",
+        "I will retrieve supporting clauses.", "retrieve_clause", "retrieval_1",
+        "check_requirement", "ToolMessage", "Finished",
     ):
         assert expected in output
-    expected_options = {} if reasoning is None else {"reasoning": reasoning}
-    assert all(c.kwargs == expected_options for c in client.bind_tools.return_value.invoke.call_args_list)
+    settings = {"num_predict": 2048}
+    if reasoning is not None:
+        settings["reasoning"] = reasoning
+    client.model_copy.assert_called_once_with(update=settings)
+    assert all(c.kwargs == {} for c in client.bind_tools.return_value.invoke.call_args_list)
     assert client.reasoning is False
-    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    client.with_structured_output.assert_called_once_with(AuditDecision, method="json_schema")
     # Reasoning applies to agent turns, never to the structured audit invocation.
     assert client.with_structured_output.return_value.invoke.call_args.kwargs == {}
 
@@ -296,9 +299,9 @@ def test_message_display_is_off_by_default_even_if_reasoning_is_requested(setup,
 
 
 @pytest.mark.parametrize("metadata,usage,expected", [
-    ({"done_reason": "length", "eval_count": 600}, None, "done_reason=length, output_tokens=600"),
+    ({"done_reason": "length", "eval_count": 600}, None, "'eval_count': 600"),
     ({"done_reason": "stop"}, {"input_tokens": 10, "output_tokens": 12, "total_tokens": 22},
-     "done_reason=stop, output_tokens=12"),
+     "'output_tokens': 12"),
 ])
 def test_verbose_reports_generation_limits_without_fabricating_a_verdict(setup, capsys, metadata, usage, expected):
     store, client = setup
@@ -320,11 +323,65 @@ def test_agent_output_budget_override_preserves_shared_client_and_audit(setup):
     assert result.error is None
     client.model_copy.assert_called_once_with(update={"num_predict": 2048})
     client.bind_tools.assert_not_called()
-    agent_client.bind_tools.assert_called_once()
+    assert agent_client.bind_tools.call_count == 3
     assert client.num_predict == 600
-    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    client.with_structured_output.assert_called_once_with(AuditDecision, method="json_schema")
     agent_client.with_structured_output.assert_not_called()
     assert client.with_structured_output.return_value.invoke.call_args.kwargs == {}
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_real_chatollama_client_works_with_create_agent_and_isolated_settings(
+    setup, decision_data, monkeypatch, override,
+):
+    """Exercise real client binding and structured parsing without an Ollama server."""
+    store, _ = setup
+    responses = iter(workflow())
+    settings = []
+    advertised = []
+
+    def generate(client, messages, stop=None, **kwargs):
+        settings.append((client.model, client.reasoning, client.num_predict, "format" in kwargs))
+        advertised.append([tool["function"]["name"] for tool in kwargs.get("tools", [])])
+        message = (
+            AIMessage(content=json.dumps(decision_data)) if "format" in kwargs
+            else next(responses)
+        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    monkeypatch.setattr(agent.ChatOllama, "_generate", generate)
+    client = rag.create_audit_client()
+    options = {"reasoning": True, "agent_num_predict": 2048} if override else {"agent_num_predict": None}
+    result = agent.run_agent(
+        "r1", "Original", store, client=client, **options,
+    )
+    assert result.error is None and result.verdict.model_dump(exclude={"evidence"}) == decision_data
+    agent_model = client.model
+    agent_settings = (agent_model, override, 2048 if override else 600, False)
+    assert settings == [agent_settings, agent_settings,
+                        (client.model, False, 600, True), agent_settings]
+    assert client.reasoning is False and client.num_predict == 600
+    all_tools = ["retrieve_clause", "check_requirement", "log_gap"]
+    assert advertised == [all_tools, all_tools, [], all_tools]
+
+
+@pytest.mark.parametrize("stage", ["before_tools", "after_assessment"])
+def test_truncated_generation_cannot_execute_tools_or_complete_an_audit(setup, stage):
+    store, client = setup
+    truncated = AIMessage(content="unfinished", response_metadata={"done_reason": "length"})
+    if stage == "before_tools":
+        truncated.tool_calls = [call("retrieve_clause", {"query": "x"})]
+        responses = [truncated]
+    else:
+        responses = [*workflow()[:-1], truncated]
+    script(client, responses)
+    result = agent.run_agent("r1", "Original", store, client=client)
+    assert "output-token limit" in result.error
+    assert result.verdict is None and not result.grounded and result.finding_id is None
+    if stage == "before_tools":
+        store.similarity_search.assert_not_called()
+    else:
+        assert result.retrieved_clause_ids == ["4.1.2"]
 
 
 @pytest.mark.parametrize("budget", [0, -1, True, "2048", 1.5])
@@ -344,19 +401,18 @@ def test_verbose_exposes_tool_errors_and_final_text_without_accepting_fabricated
     result = agent.run_agent("r1", "Original", store, client=client, verbose=True)
     assert result.verdict is None and result.error
     output = capsys.readouterr().out
-    assert "Tool result (error, unknown):" in output
-    assert "Unknown tool: unknown" in output
-    assert "Agent message:\nThe requirement Meets the standard." in output
-    assert "No tool calls returned." in output
-    assert "Thinking:" not in output
+    assert "status='error'" in output
+    assert "unknown is not a valid tool" in output
+    assert "The requirement Meets the standard." in output
+    assert "reasoning_content" not in output
     client.with_structured_output.assert_not_called()
 
 
 @pytest.mark.parametrize("log", [False, True])
-def test_runtime_requires_gap_logging(setup, verdict_data, log):
+def test_runtime_requires_gap_logging(setup, decision_data, log):
     store, client = setup
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict(
-        **{**verdict_data, "verdict": "Gap", "missing_elements": ["Approval"]},
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(
+        **{**decision_data, "verdict": "Gap", "missing_elements": ["Approval"]},
     )
     script(client, workflow(log))
     result = agent.run_agent("r1", "Original", store, client=client)
@@ -366,15 +422,15 @@ def test_runtime_requires_gap_logging(setup, verdict_data, log):
         assert "logging" in result.error and result.verdict is None and not result.grounded
 
 
-def test_model_final_text_cannot_fabricate_or_overwrite_verdict(setup, verdict_data):
+def test_model_final_text_cannot_fabricate_or_overwrite_verdict(setup, decision_data):
     store, client = setup
-    fabricated = AIMessage(content=json.dumps({**verdict_data, "verdict": "Gap"}))
+    fabricated = AIMessage(content=json.dumps({**decision_data, "verdict": "Gap"}))
     script(client, [fabricated])
     result = agent.run_agent("r1", "Original", store, client=client)
     assert result.verdict is None and result.error
     script(client, [*workflow()[:-1], fabricated])
     result = agent.run_agent("r1", "Original", store, client=client)
-    assert result.verdict.model_dump() == verdict_data
+    assert result.verdict.model_dump(exclude={"evidence"}) == decision_data
 
 
 @pytest.mark.parametrize("bad_call", [
@@ -390,8 +446,10 @@ def test_tool_errors_return_to_model_and_allow_correction(setup, bad_call):
     assert result.error is None
     error = histories[1][-1]
     assert error.tool_call_id == "bad_call" and error.status == "error"
-    assert json.loads(error.content)["ok"] is False
-    assert "verdict" not in json.loads(error.content)
+    assert error.content
+    assert "verdict" not in error.content
+    if bad_call["name"] == "check_requirement":
+        assert json.loads(error.content)["ok"] is False
 
 
 def test_multiple_calls_in_a_turn_are_processed_in_order(setup):
@@ -410,7 +468,7 @@ def test_repeated_failures_terminate_at_turn_limit(setup):
     store, client = setup
     histories = script(client, [reply(call("unknown", call_id=f"call_{i}")) for i in range(3)])
     result = agent.run_agent("r1", "Original", store, client=client, max_steps=3)
-    assert "model-turn limit" in result.error and result.verdict is None
+    assert "Model call limits exceeded" in result.error and result.verdict is None
     assert len(histories) == 3
     store.similarity_search.assert_not_called()
 
@@ -419,7 +477,7 @@ def test_tool_call_budget_rejects_oversized_batch_before_execution(setup):
     store, client = setup
     script(client, [reply(*(call("retrieve_clause", {"query": "x"}, f"call_{i}") for i in range(3)))])
     result = agent.run_agent("r1", "Original", store, client=client, max_steps=2)
-    assert "tool-call limit" in result.error
+    assert "Tool call limit reached" in result.error
     store.similarity_search.assert_not_called()
 
 

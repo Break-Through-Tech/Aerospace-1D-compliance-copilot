@@ -22,16 +22,13 @@ class Clause(BaseModel):
     source_url: NonEmpty
 
 
-class AuditVerdict(BaseModel):
-    """Reason about a single selected clause before deciding its verdict."""
+class AuditDecision(BaseModel):
+    """Model-owned judgment fields, validated before adding source evidence."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
     clause_id: NonEmpty = Field(
         description="Exact clause identifier of the selected retrieved clause, e.g. '4.1.2'. No SWE ID."
-    )
-    evidence: NonEmpty = Field(
-        description="Exact nonempty phrase copied from the selected clause's requirement text."
     )
     rationale: str = Field(
         min_length=15,
@@ -56,12 +53,18 @@ class AuditVerdict(BaseModel):
         return self
 
 
+class AuditVerdict(AuditDecision):
+    """Validated judgment plus the full text of its selected retrieved clause."""
+
+    evidence: NonEmpty = Field(description="Original requirement text copied from the selected retrieved clause.")
+
+
 class AuditRecord(BaseModel):
     """Result of processing one requirement through retrieval and auditing.
 
-    ``grounded`` records whether the verdict's cited clause ID appeared in the
-    retrieved clause IDs. This membership check does not verify that ``evidence``
-    is an exact excerpt from that clause; ``audit_requirement`` performs that check.
+    ``grounded`` records whether the cited clause ID belongs to the retrieved
+    clauses. ``audit_requirement`` separately resolves the full original source
+    text for evidence. Neither check establishes judgment accuracy.
     """
 
     requirement_id: str

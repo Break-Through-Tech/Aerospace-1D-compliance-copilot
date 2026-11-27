@@ -12,7 +12,7 @@ from langchain_core.messages import AIMessage
 from scripts import evaluate_rag
 from src import agent, rag
 from src.evaluation import evaluate
-from src.schemas import AuditVerdict
+from src.schemas import AuditDecision
 from src.vector_store import get_embeddings
 
 
@@ -20,7 +20,7 @@ from src.vector_store import get_embeddings
 @pytest.mark.parametrize("use_reporting", [False, True])
 @pytest.mark.parametrize("k", [3, 11])
 def test_main_loads_resources_once_limits_work_and_evaluates(
-    monkeypatch, capsys, clause_data, verdict_data, tmp_path, use_cache, use_reporting, k,
+    monkeypatch, capsys, clause_data, decision_data, tmp_path, use_cache, use_reporting, k,
 ):
     benchmark = pd.DataFrame([
         {"requirement_id": req_id, "requirement_text": text, "clause_id": "4.1.2", "label": "Meets"}
@@ -44,7 +44,7 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
     monkeypatch.setattr(evaluate_rag, "load_vector_store", load_store)
     client = Mock()
     client.model_dump.return_value = rag.create_audit_client().model_dump(mode="json")
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate(verdict_data)
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision.model_validate(decision_data)
     make_client = Mock(return_value=client)
     monkeypatch.setattr(rag, "ChatOllama", make_client)
     evaluate_records = Mock(wraps=evaluate)
@@ -112,7 +112,7 @@ def test_main_loads_resources_once_limits_work_and_evaluates(
 @pytest.mark.parametrize("limit", [None, 2])
 @pytest.mark.parametrize("k", [None, 3])
 def test_agent_mode_reuses_services_isolates_runs_and_reports_failures(
-    monkeypatch, tmp_path, capsys, clause_data, verdict_data, limit, k,
+    monkeypatch, tmp_path, capsys, clause_data, decision_data, limit, k,
 ):
     # Use the real loader and evaluator. Gold data must stop at the loader's pairs.
     benchmark = pd.DataFrame([
@@ -149,22 +149,29 @@ def test_agent_mode_reuses_services_isolates_runs_and_reports_failures(
     ])
     histories = []
 
-    def bind_tools(tools):
-        history = []
-        histories.append(history)
-        replies = iter(next(responses))
+    replies = None
+    history = None
 
-        def respond(messages):
-            history.append(copy.deepcopy(messages))
-            return next(replies)
+    def respond(messages):
+        nonlocal replies, history
+        if len(messages) == 2:
+            history = []
+            histories.append(history)
+            replies = iter(next(responses))
+        history.append(copy.deepcopy(messages))
+        return copy.deepcopy(next(replies))
 
+    def bind_tools(tools, **kwargs):
         return Mock(invoke=Mock(side_effect=respond))
 
     client = Mock()
     client.bind_tools.side_effect = bind_tools
+    agent_client = Mock()
+    agent_client.bind_tools = client.bind_tools
+    client.model_copy.return_value = agent_client
     client.with_structured_output.return_value.invoke.side_effect = [
-        AuditVerdict(**{**verdict_data, "verdict": "Gap", "missing_elements": ["Approval"]}),
-        AuditVerdict(**verdict_data),
+        AuditDecision(**{**decision_data, "verdict": "Gap", "missing_elements": ["Approval"]}),
+        AuditDecision(**decision_data),
     ]
     make_client = Mock(return_value=client)
     monkeypatch.setattr(evaluate_rag, "create_audit_client", make_client)
@@ -192,7 +199,7 @@ def test_agent_mode_reuses_services_isolates_runs_and_reports_failures(
         call(row.requirement_id, row.requirement_text, store, client=client, k=configured_k)
         for row in selected.itertuples()
     ]
-    assert client.bind_tools.call_count == len(selected)
+    assert len(histories) == len(selected)
     for history, row in zip(histories, selected.itertuples()):
         assert len(history[0]) == 2
         assert json.loads(history[0][1].content) == {

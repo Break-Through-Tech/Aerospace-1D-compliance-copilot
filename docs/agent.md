@@ -1,19 +1,16 @@
 # Compliance agent
 
-`src/agent.py` contains the LangChain tools, per-requirement state, and synchronous
-tool-calling runtime. Agent instructions live alongside the audit prompts in
-`src/prompts.py`; tool argument schemas and `AgentResult` live with the canonical
-models in `src/schemas.py`. The runtime uses the existing `src.rag` functions;
-the October baseline remains historical and independent.
+The agent uses `langchain.agents.create_agent` to choose tools over the canonical
+RAG pipeline. The same configured Ollama model handles tool selection and audit
+judgments. Each requirement has its own session and validated result.
 
 ## Run one requirement
 
-Use the canonical setup in the root README: install `requirements.txt`, copy
-`.env.example` to `.env`, start Ollama, install the configured models, and build
-or verify the Chroma index. The generation model must support tool calling and
-structured output. The existing example uses `qwen3:4b`.
-
-From the repository root:
+Install `requirements.txt`, configure `.env` from `.env.example`, start Ollama,
+and verify the Chroma index using the root README. The recommended generation
+model is `qwen3.5:4b`; existing `.env` files must also set
+`GENERATION_MODEL=qwen3.5:4b`. Pull the model with `ollama pull qwen3.5:4b`.
+Restart notebook kernels after changing configuration or code.
 
 ```python
 from src.agent import run_agent
@@ -24,254 +21,157 @@ result = run_agent(
     "The project shall document software requirements without formal approval.",
     load_vector_store(),
 )
-if result.error is not None:
+if result.error:
     print("FAILED:", result.error)
 else:
     print(result.verdict.model_dump())
     print("Finding:", result.finding_id)
 ```
 
-`AgentResult` extends the existing `AuditRecord` with `finding_id`. Success has a
-validated `verdict`, `grounded=True`, and `error=None`; `Partial` or `Gap` also
-requires a finding ID. A failed run has an error, no verdict, no finding ID, and
-`grounded=False`. Invalid caller inputs (blank ID/text, invalid `max_steps`, or
-`k` outside the integer range 1–10)
-raise `ValueError` before any model calls. Service and agent failures become
-failed records. Check `error` before consuming results.
+The configured client uses temperature 0, thinking off, and a 600-token audit
+budget. Agent turns use a shallow client copy with a 2,048-token output budget;
+the original audit client is unchanged. Pass `client=...` to inject one shared
+client, or override the agent budget with `agent_num_predict=...`. Passing `None`
+preserves the injected client's budget. `reasoning=True` enables thinking only
+for agent turns; omit it to retain the shared client's default of `False`.
 
-By default, `rag.create_audit_client()` uses the shared generation model,
-Ollama host, temperature, output budget, and reasoning settings. Pass
-`client=...` to inject an existing `ChatOllama` client or an offline test client.
-The same unbound client performs the canonical audit; binding tools returns a
-separate LangChain runnable and does not change the audit's structured output.
+`k` fixes retrieval size for every search in a run (default 5, allowed 1–10).
+The model can reformulate its query and choose a stored retrieval, but cannot
+supply a different retrieval size or replacement source records.
 
-Pass `k=...` to `run_agent()` to set retrieval size (default 5). Every search in
-that run uses the configured size. The model supplies only query text to the
-retrieval tool, so it can reformulate a query and choose between two retrievals
-without changing the size. Direct `AuditTools` callers configure the same `k`
-keyword when constructing the session.
+## Execution flow
 
-## Inspect agent messages
+1. `run_agent()` creates a fresh `AuditTools` instance with the original
+   requirement. Its tools share only that requirement's working state.
+2. `create_agent()` advertises all three tools, invokes the model, executes
+   requested tools, and feeds their results back into the conversation.
+3. `retrieve_clause` searches Chroma and stores actual `Clause` objects under a
+   retrieval ID. `check_requirement` audits the original requirement against one
+   chosen stored retrieval using `rag.audit_requirement()`.
+4. The audit model returns `AuditDecision`: clause ID, rationale, missing
+   elements, and verdict. Python verifies that the ID identifies exactly one
+   retrieved clause and copies its full original requirement text into
+   `AuditVerdict.evidence`. The model never writes the citation text.
+5. For `Partial` or `Gap`, the agent must call `log_gap`. Python records a
+   deterministic finding ID against the stored assessment. `Meets` cannot be
+   logged, and repeated logging returns the same finding ID.
+6. When the model finishes, Python returns a copy of the stored `AgentResult`.
+   Final model prose is never parsed as a verdict and cannot replace it.
 
-For a small debugging run, pass `verbose=True` to `run_agent()`. It prints each
-turn, returned thinking (if any), model text, proposed tool calls, and tool
-results/errors. It also prints the generation stop reason, output-token count,
-and tool-call count. Output appears after each call completes; it is not token
-streaming. Final model prose still cannot replace the validated audit result.
+`AuditDecision` defines the judgment fields and their consistency checks.
+`AuditVerdict` extends that schema with source evidence, preserving the existing
+result and reporting format. Both canonical RAG and the agent use this audit
+path. Source text establishes provenance; it does not establish that the verdict
+or selected clause is correct.
 
-The shared client defaults to `reasoning=False`. Pass `reasoning=True` to
-`run_agent()` to enable Ollama thinking for agent turns only, or `False` to
-disable it explicitly. The default `None` preserves the client's setting. This
-override is not passed to the structured audit and does not mutate the shared
-client. Models must support thinking to return it. Thinking consumes the model's
-output budget and can change tool choices or increase latency, so compare these
-debug runs separately from reasoning-disabled runs.
+## Tools and safeguards
 
-Pass `agent_num_predict=2048` to raise only the agent turns' output budget. A
-shallow client copy shares the existing transport while preserving the original
-client and its structured audit budget. Omit this option to keep existing settings;
-supplied budgets must be positive integers.
+| Tool | Arguments | Operation |
+| --- | --- | --- |
+| `retrieve_clause` | `query`: nonblank string, at most 20,000 characters | Retrieves the configured number of clauses; allows at most two successful searches before assessment |
+| `check_requirement` | `retrieval_id`: nonblank string | Performs one assessment attempt against stored clauses; the canonical audit may retry invalid output once |
+| `log_gap` | None | Logs the stored Partial or Gap result without accepting model-supplied finding content |
 
-`notebooks/05_agent_evaluation_benchmark.ipynb` includes a diagnostic section before
-the five-requirement benchmark. It checks direct retrieval, inspects the installed
-model/version/template, and runs only the first requirement at three settings:
-thinking off with 600 tokens, off with 2,048, and on with 2,048. Restart the kernel
-to load the new options, then stop after these cells to avoid the later benchmark.
-The notebook keeps results in memory without saving separate evaluation artifacts.
+Strict Pydantic schemas reject wrong types and unexpected tool arguments. The
+small `StrictStructuredTool` subclass preserves `additionalProperties: false`
+and validates no-argument calls: the tested LangChain version otherwise drops
+that advertised restriction and silently discards unexpected `log_gap` arguments.
 
-The live diagnostic returned five clauses directly, beginning with `4.1.2`. All
-three agent settings returned zero tool calls and `done_reason=length`, consuming
-their full budgets. Increasing the budget did not resolve the tool-calling failure.
-The inspected Ollama 0.40.2 `qwen3:4b` template appends an opening `<think>` tag
-in its final-user-message branch without checking whether thinking is enabled.
-That is a possible contributor to the observed planning loop, not a proven sole
-cause. No installed model/template or canonical audit settings were changed.
-The notebook preserves the earlier five-requirement outputs alongside these
-single-requirement diagnostics; the benchmark was not re-run.
+The runtime uses `max_concurrency=1` because the tools modify the same session
+state. This makes tool batches execute in order, avoiding retrieval, assessment,
+and logging races. A fresh session per requirement prevents earlier results from
+being reused by later requirements. Model-selected retrieval IDs must exist in
+that session; source text and verdicts cannot be supplied through tool arguments.
 
-## Evaluate a benchmark
+`Meets` requires no missing elements; `Partial` and `Gap` require at least one.
+Unknown or ambiguous clause IDs fail, and Python never substitutes another clause.
+The audit retries schema, parsing, and citation failures once with fixed feedback,
+without appending failed model output or exception dumps to the prompt. After an
+assessment attempt, additional searches and assessments are rejected.
 
-After the canonical setup, use the existing command:
+Built-in model/tool call-limit middleware caps model turns and total tool calls
+separately at `max_steps` (default 8). Oversized tool-call batches fail before
+execution. A small `after_model` hook rejects malformed/truncated responses and
+missing or duplicate call IDs. Limits bound requests, not wall-clock time.
+
+Tool errors return as error `ToolMessage` objects so the model can correct a
+request within the budget. Handler exceptions have bounded JSON error messages;
+LangChain also produces its own validation and unknown-tool error messages.
+Direct `AuditTools.tools[name].invoke(...)` calls raise their errors.
+
+A successful `AgentResult` has a validated verdict, `grounded=True`, and no error;
+Partial or Gap also requires a finding ID. A failed run has no verdict or finding
+and `grounded=False`. Missing assessment/logging, service failures, exhausted
+budgets, or invalid responses fail explicitly. A truncated final generation still
+fails even if earlier tools succeeded. Check `error` before consuming results.
+
+## Inspect messages and evaluate
+
+Pass `verbose=True` to enable LangChain's built-in graph debug output, including
+returned messages, tool calls/results, and token/stop metadata. This prints state
+updates after calls complete; it is not token streaming.
 
 ```bash
 python -m scripts.evaluate_rag --agent --limit 5
-python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
+python -m scripts.evaluate_rag --agent --out results/runs/agent-run
 python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
 ```
 
-The benchmark loader returns labeled rows for scoring and separate ID/text pairs
-for execution. After applying `--limit`, the command loads one Chroma store and
-creates one configured Ollama client. Each pair goes to a new `run_agent()` call
-with the shared store/client and configured `k`; labels, gold clause IDs, and
-reference rationales never go to the agent. The command prints progress after
-each completed requirement, including failures.
+[Notebook 05](../notebooks/05_agent_evaluation_benchmark.ipynb) uses this same
+runtime, starts with five requirements, and keeps its execution results in memory.
+Set `limit=None` for all 50 requirements. Execution outputs are cleared so the
+notebook can be run against the current local environment.
 
-The existing evaluator aligns results by requirement ID and counts failures as
-`INVALID` predictions. Retrieval Hit@K uses the same configured `k` and the
-retrieval chosen for assessment, rather than merging searches. Runs that never
-select an assessment retrieval have empty recorded clause IDs and miss retrieval
-metrics. The existing reporter saves the same five artifacts, including errors
-and agent finding IDs in complete records. The terminal and `report.md` identify
-Agent versus Canonical RAG mode; metric formulas and file formats are shared.
+The evaluator shares one vector store/client but creates a fresh agent session
+for every requirement. Labels, expected clauses, and reference rationales stay
+in scoring data and are not passed to the agent. Failures count as `INVALID`.
+Retrieval metrics use the retrieval chosen for assessment, not a union of searches.
+The reporter preserves errors, citations, and finding IDs in the existing output
+formats. Agent caching/resumability is not implemented; `--agent --cache ...` is
+rejected before services initialize. Canonical RAG still supports its existing
+cache, with schema/prompt/implementation fingerprints preventing reuse of
+incompatible older audit results.
 
-Without `--agent`, evaluation retains the RAG batch runner and existing cache
-behavior, including support for positive `k` values above 10. Agent mode does not
-support caching or resumability: `--agent --cache ...` is rejected before reading
-the benchmark or initializing services. Tool selection and conversation completion
-add model calls beyond the canonical audit, so expect additional work per
-requirement. No agent benchmark scores have been measured here; improvement over
-RAG must be established by running and reviewing evaluations.
+## Measured source-evidence experiment
 
-## Tools
+The configuration selected for integration used Qwen3.5 4B in both roles, thinking
+off, top-k 5, a 2,048-token agent budget, and a 600-token audit budget. Its full
+50-requirement development-benchmark run measured:
 
-LangChain `StructuredTool` generates tool definitions and validates arguments
-against strict Pydantic schemas. Unknown fields and wrong types are rejected.
-The local `StrictStructuredTool` subclass preserves the original Pydantic schema
-when advertising tools to the model and validates empty argument schemas before
-LangChain's no-argument shortcut. Without these two overrides, the tested
-LangChain version drops `additionalProperties: false` from advertised schemas
-and silently discards unexpected arguments to `log_gap`. These tools have no
-injected runtime arguments, so their complete schemas can be advertised directly.
+| Measure | Result |
+| --- | --- |
+| Completed audits | 50/50 |
+| Tool errors | 0 |
+| Verdict matches | 37/50 (74%) |
+| Macro F1 | 0.7200 |
+| Expected clause retrieved in top 5 | 49/50 (98%) |
+| Incorrect Meets predictions | 5 (IDs 8, 13, 18, 20, 28) |
 
-| Tool | Arguments | Work and result |
-| --- | --- | --- |
-| `retrieve_clause` | `query`: nonblank string, at most 20,000 characters | Calls `rag.retrieve_clauses(query, vector_store, k=configured_k)`; stores actual `Clause` objects and returns a retrieval ID and canonical clause metadata |
-| `check_requirement` | `retrieval_id`: nonblank string | Calls `rag.audit_requirement(original_text, stored_clauses, client=client)` and stores/returns the validated assessment |
-| `log_gap` | None | Marks the one stored `Partial` or `Gap` assessment as logged and returns `finding_id` and `already_logged` |
+All 50 evidence fields were verified against the selected retrieved source text.
+Detailed artifacts remain local under
+`results/runs/agent-qwen35-source-evidence-20261127T001247/`. These are measured
+experiment results, not a guarantee that every rerun produces identical outputs.
+The benchmark has been reused during development and is not an independent holdout.
 
-Successful responses contain `ok: true`. In the runtime, unknown tools,
-validation errors, retrieval errors and audit errors become LangChain
-`ToolMessage` responses with `status="error"` and JSON content containing
-`ok: false` and an error description (at most 1,000 characters). Errors never
-include a verdict. The model may correct arguments within the request budget.
-Calling an individual tool through `AuditTools.tools[name].invoke(...)` raises
-its exception; the runtime provides error-to-message conversion.
-
-## Why keep this state?
-
-- Each `run_agent()` creates a fresh `AuditTools` instance and message list. No
-  requirement can read another run's retrievals, assessment, or finding.
-- Retrieval IDs distinguish up to two successful searches. The assessment uses
-  the original requirement and the chosen stored clauses, never model-supplied
-  evidence or replacement clause objects. IDs are local to a run.
-- One assessment attempt is allowed. The canonical audit already retries invalid
-  output once, so agent-level assessment retries would multiply model invocations.
-  Invalid retrieval IDs do not consume that attempt.
-- After an assessment attempt, further searches and assessments are rejected.
-- There is only one assessment and one possible finding, so assessment IDs,
-  requirement IDs in tool arguments, assessment/finding dictionaries, manual
-  JSON tool schemas, and the custom dispatcher are unnecessary.
-- Logging attaches one deterministic finding ID to the stored assessment;
-  repeated logging returns the same ID. `Meets` cannot be logged. Returned data
-  is detached from private state, so changing a response cannot change the
-  assessment. Logging is in memory only; retain the returned result to keep
-  the assessment and finding together.
-
-The canonical audit owns schema validation, the relationship between verdict
-and missing elements, retrieved-clause membership, exact evidence excerpts, and
-one corrective retry. The agent does not duplicate those checks or implement a
-second compliance judge.
-
-## How the Python code fits together
-
-1. **`run_agent()` creates the session.** The caller supplies the requirement
-   and an already loaded Chroma store. Instructions go into a `SystemMessage`;
-   the requirement ID and text go into a JSON `HumanMessage` as data.
-2. **`bind_tools()` tells the model what it can call.** Each `StructuredTool`
-   combines a Python handler, description, and argument schema. Binding advertises
-   the tools; it does not run them automatically.
-3. **The model returns an `AIMessage`.** Its `tool_calls` contain names,
-   arguments and call IDs. The runtime invokes the corresponding LangChain
-   tools in order. LangChain validates arguments and returns `ToolMessage`
-   objects linked to those call IDs.
-4. **Retrieval and auditing happen in the existing pipeline.** Chroma handles
-   embeddings/search through `retrieve_clauses()`. `check_requirement` hands
-   stored clauses and original text to `audit_requirement()`, which uses
-   Ollama structured output and validates the result.
-5. **Messages let the model continue.** Assistant tool requests and all tool
-   responses are appended to the conversation. The next model invocation can
-   choose another tool, log a gap, or finish. Multiple calls in one response
-   execute sequentially and all receive matching tool responses.
-6. **Python chooses the returned assessment.** When the model stops calling
-   tools, `result()` returns a copy of the stored validated record. Final model
-   text is never parsed as a verdict and cannot override the audit.
-
-The runtime uses `ChatOllama.bind_tools`, `StructuredTool.invoke`, `AIMessage`,
-and `ToolMessage` from the existing LangChain packages. A short bounded loop
-connects these APIs because `langchain-core` provides tool/message primitives,
-not a complete agent executor. No LangGraph or additional framework is required.
-
-## Termination and limits
-
-`max_steps` defaults to 8 and caps both model turns and total tool calls. An
-oversized tool-call batch is rejected before executing any of it. Malformed
-responses, missing/duplicate call IDs, model-service exceptions, and exhausted
-budgets fail explicitly. Finishing without an assessment or required finding
-also fails. Reaching a limit fails even if an assessment was produced but the
-model did not finish.
-
-These limits bound requests, not wall-clock time; service calls depend on the
-client's timeout settings. Context length remains managed by Ollama. The agent
-does not implement context-truncation detection, persistent conversations,
-long-term memory, or agent caching/resumability.
-Existing README benchmark numbers describe canonical RAG, not this agent.
-
-Grounding verifies evidence provenance, not judgment accuracy. Each assessment
-still evaluates one selected clause and does not establish complete NASA
-compliance. Source text is explicitly treated as data in instructions; this
-does not guarantee immunity to prompt injection. Programmatic safeguards prevent
-substituting agent-authored verdicts for canonical validated results.
+Valid output, exact source text, and completed tool use do not prove compliance
+accuracy. Each verdict evaluates one selected clause, rather than establishing
+coverage of all applicable NASA obligations. The five incorrect Meets predictions
+remain judgment/selection errors requiring review. Treat source text as untrusted
+data; the prompt and dispatch checks do not guarantee prompt-injection immunity.
 
 ## Verify offline
 
-Install both the canonical and October dependencies in a virtual environment
-with `python -m pip install -e '.[october]'`. Configure `.env` from `.env.example`
-(back up an existing `.env` first). From that environment, run:
+Install canonical and October dependencies with
+`python -m pip install -e '.[october]'`, configure `.env`, and run:
 
 ```bash
-python -m pytest tests/test_agent.py tests/test_evaluate_rag.py \
-  tests/test_evaluation.py tests/test_reporting.py tests/test_rag.py -q
 python -m pytest -q
+python -m pip check
 ```
 
-Tests use real LangChain messages and structured tools with mocked Chroma search
-and model responses. Agent tests exercise actual canonical retrieval and audit
-functions, including evidence rejection and the canonical retry. No Ollama
-server, embedding model, or model download is needed. Other repository tests
-also exercise disposable Chroma stores and the preserved October baseline.
-
-Verified on November 21, 2026, using Python 3.12.3 and the example environment:
-
-| Check | Result |
-| --- | --- |
-| Focused command above (agent, evaluation, reporting, RAG) | 155 passed in 3.58 seconds |
-| `python -m pytest -q` | 256 passed in 11.03 seconds |
-| `python -m pip check` | No broken requirements found |
-
-Installed versions were `pytest==9.1.1`, `langchain-core==1.6.9`,
-`langchain-chroma==1.1.0`, `langchain-ollama==1.1.0`, `pydantic==2.14.0`,
-`chromadb==1.5.9`, and `ollama==0.6.3`. These record the verified environment;
-the dependency files remain unpinned.
-
-The imported implementation initially had three failing tests, all caused by the
-tool schema/empty-argument behavior described above. After fixing those failures,
-four additional regression cases verify that invalid `log_gap` arguments cannot
-create a finding after a valid assessment, through either direct invocation or a
-model tool call. A subsequent valid call still logs successfully.
-
-Benchmark integration tests run the real agent, loader, evaluator, and reporter
-with mocked services. They cover shared resources with isolated conversations,
-gold-data separation, limits, fixed retrieval size across reformulations, progress,
-failed predictions and findings in reports, mode labels, and rejection of agent
-caching before initialization. Existing RAG cache tests also run with `k=11` to
-check that the agent's upper bound does not restrict RAG-only evaluation.
-Message-display tests verify returned thinking/text, tool results and errors,
-silent defaults, and per-turn reasoning overrides without changing audit settings
-or accepting final model text as a verdict. Diagnostic tests also verify token
-metadata, positive agent-only budgets, and preservation of the audit client.
-
-A live Ollama diagnostic has now run for one requirement, as described above.
-The larger benchmark has not been re-run, and the agent's live tool-calling
-failure remains unresolved. Offline tests verify the tool protocol, validation,
-and local integration; they do not establish model judgment accuracy or
-service-timeout behavior.
+Tests exercise real LangChain tools/messages and the `create_agent` graph with
+mocked inference. Real-client tests replace generation while retaining schema
+binding and parsing. They cover original-input preservation, source-resolved
+evidence, unknown/ambiguous IDs, consistent verdicts, required findings, per-run
+isolation, sequential batches, errors/retries, budgets, evaluation/reporting, and
+cache invalidation. Offline tests require no Ollama server or model download.

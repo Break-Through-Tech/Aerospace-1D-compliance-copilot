@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.schemas import AuditVerdict, Clause
+from src.schemas import AuditDecision, AuditVerdict, Clause
 
 
 def test_clause_ignores_unrelated_document_metadata(clause_data):
@@ -57,14 +57,12 @@ def test_verdict_rejects_unexpected_or_invalid_fields(verdict_data, overrides):
         AuditVerdict.model_validate({**verdict_data, **overrides})
 
 
-def test_verdict_schema_preserves_rationale_before_missing_elements():
-    schema = AuditVerdict.model_json_schema()
-    fields = ["clause_id", "evidence", "rationale", "missing_elements", "verdict"]
+def test_decision_schema_preserves_rationale_before_missing_elements():
+    schema = AuditDecision.model_json_schema()
+    fields = ["clause_id", "rationale", "missing_elements", "verdict"]
     assert list(schema["properties"]) == fields
     assert schema["required"] == fields
-
-    # Check the format bound to Ollama, not just Pydantic's local schema.
+    assert "evidence" not in schema["properties"]
     from src.rag import create_audit_client
-
-    structured = create_audit_client().with_structured_output(AuditVerdict, method="json_schema")
+    structured = create_audit_client().with_structured_output(AuditDecision, method="json_schema")
     assert structured.first.kwargs["format"] == schema

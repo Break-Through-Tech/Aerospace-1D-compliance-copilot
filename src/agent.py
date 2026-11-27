@@ -1,9 +1,16 @@
-"""One-requirement LangChain tool loop over the canonical RAG pipeline."""
+"""One-requirement LangChain agent over the canonical RAG pipeline."""
 
 import json
 
+from langchain.agents import create_agent
+from langchain.agents.middleware import (
+    ModelCallLimitMiddleware,
+    ToolCallLimitMiddleware,
+    ToolErrorMiddleware,
+    after_model,
+)
 from langchain_chroma import Chroma
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import StructuredTool
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel
@@ -14,6 +21,22 @@ from src.schemas import AgentResult, CheckArguments, RetrieveArguments, ToolArgu
 
 
 MAX_RETRIEVAL_K = 10
+
+
+@after_model
+def validate_agent_response(state, runtime):
+    """Reject incomplete generations and ambiguous call IDs before tools run."""
+    response = state["messages"][-1]
+    if not isinstance(response, AIMessage) or response.invalid_tool_calls:
+        raise ValueError("Model returned an invalid tool-call response")
+    if response.response_metadata.get("done_reason") == "length":
+        raise ValueError("Agent generation reached its output-token limit")
+    ids = [
+        call["id"] for message in state["messages"] if isinstance(message, AIMessage)
+        for call in message.tool_calls
+    ]
+    if any(not call_id for call_id in ids) or len(set(ids)) != len(ids):
+        raise ValueError("Tool calls require unique nonempty IDs")
 
 
 class StrictStructuredTool(StructuredTool):
@@ -89,7 +112,9 @@ class AuditTools:
         clauses = self._retrievals[retrieval_id]
         self._record.retrieved_clause_ids = [clause.clause for clause in clauses]
         # The canonical function owns schema validation, evidence checks and retry.
-        verdict = rag.audit_requirement(self._record.requirement_text, clauses, client=self._client)
+        verdict = rag.audit_requirement(
+            self._record.requirement_text, clauses, client=self._client,
+        )
         self._record.verdict = verdict.model_copy(deep=True)
         self._record.grounded = True
         return {"ok": True, **self._record.model_dump(mode="json")}
@@ -131,7 +156,7 @@ def run_agent(
     max_steps: int = 8,
     verbose: bool = False,
     reasoning: bool | None = None,
-    agent_num_predict: int | None = None,
+    agent_num_predict: int | None = 2048,
 ) -> AgentResult:
     """Return a stored, validated assessment or an explicit failed record.
 
@@ -141,12 +166,12 @@ def run_agent(
     for offline tests; otherwise use the canonical Ollama settings and model.
     k fixes retrieval size for every search (1–10, default 5); the model chooses
     query text and which retrieval to audit, but cannot change that size.
-    verbose displays returned model text, thinking (when present), and tool
-    activity after each call completes. reasoning overrides Ollama thinking for
-    agent turns only; None retains the client's setting. Audit settings are
-    unchanged. These diagnostics do not change which verdict is accepted.
-    agent_num_predict optionally sets a positive output-token budget for agent
-    turns only, using a shallow client copy that shares the existing transport.
+    verbose enables LangChain graph debug output, including returned messages,
+    reasoning metadata (when present), and tool activity. reasoning overrides
+    Ollama thinking for agent turns only; None retains the client's setting.
+    Audit settings are unchanged. These diagnostics do not change which verdict is accepted.
+    agent_num_predict defaults to 2048 for agent turns, using a shallow copy
+    that shares the existing transport. None preserves the audit client budget.
     """
     if not isinstance(requirement_id, str) or not requirement_id.strip():
         raise ValueError("requirement_id must be a nonempty string")
@@ -160,71 +185,45 @@ def run_agent(
         raise ValueError("agent_num_predict must be a positive integer or None")
 
     # Keep configuration and service failures explicit, including client creation.
+    session = None
     try:
         if client is None:
             client = rag.create_audit_client()
         session = AuditTools(requirement_id, requirement_text, vector_store, client, k=k)
-        agent_client = client if agent_num_predict is None else client.model_copy(
-            update={"num_predict": agent_num_predict},
+        settings = {}
+        if agent_num_predict is not None:
+            settings["num_predict"] = agent_num_predict
+        if reasoning is not None:
+            settings["reasoning"] = reasoning
+        agent_client = client.model_copy(update=settings) if settings else client
+
+        runtime = create_agent(
+            model=agent_client,
+            tools=list(session.tools.values()),
+            system_prompt=AGENT_INSTRUCTIONS + f"\nRetrieval size is fixed at k={k}.",
+            middleware=[
+                ModelCallLimitMiddleware(run_limit=max_steps, exit_behavior="error"),
+                ToolCallLimitMiddleware(run_limit=max_steps, exit_behavior="error"),
+                ToolErrorMiddleware(lambda exc, request: json.dumps({
+                    "ok": False, "error": str(exc)[:1000],
+                })),
+                validate_agent_response,
+            ],
+            debug=verbose,
         )
-        model = agent_client.bind_tools(list(session.tools.values()))
-        messages = [
-            SystemMessage(content=AGENT_INSTRUCTIONS + f"\nRetrieval size is fixed at k={k}."),
-            HumanMessage(content=json.dumps({
+        runtime.invoke(
+            {"messages": [HumanMessage(content=json.dumps({
                 "requirement_id": requirement_id, "requirement_text": requirement_text,
-            })),
-        ]
-        call_ids = set()
-        for turn in range(1, max_steps + 1):
-            if verbose:
-                print(f"[{requirement_id}] Agent turn {turn}...", flush=True)
-            invoke_options = {} if reasoning is None else {"reasoning": reasoning}
-            response = model.invoke(messages, **invoke_options)
-            if verbose and isinstance(response, AIMessage):
-                metadata = response.response_metadata
-                usage = response.usage_metadata or {}
-                output_tokens = metadata.get("eval_count", usage.get("output_tokens", "unknown"))
-                print(f"[{requirement_id}] Generation: done_reason={metadata.get('done_reason', 'unknown')}, "
-                      f"output_tokens={output_tokens}, tool_calls={len(response.tool_calls)}", flush=True)
-                thinking = response.additional_kwargs.get("reasoning_content")
-                if thinking:
-                    print(f"[{requirement_id}] Thinking:\n{thinking}", flush=True)
-                if response.content:
-                    print(f"[{requirement_id}] Agent message:\n{response.content}", flush=True)
-                for tool_call in response.tool_calls:
-                    print(f"[{requirement_id}] Tool call: {tool_call['name']} "
-                          f"{json.dumps(tool_call['args'], ensure_ascii=False)}", flush=True)
-                if not response.tool_calls:
-                    print(f"[{requirement_id}] No tool calls returned.", flush=True)
-            if not isinstance(response, AIMessage) or response.invalid_tool_calls:
-                raise ValueError("Model returned an invalid tool-call response")
-            messages.append(response)
-            if not response.tool_calls:
-                return session.result()
-            ids = [call.get("id") for call in response.tool_calls]
-            if any(not call_id or call_id in call_ids for call_id in ids) or len(set(ids)) != len(ids):
-                raise ValueError("Tool calls require unique nonempty IDs")
-            if len(call_ids) + len(ids) > max_steps:
-                return session.result("Agent tool-call limit reached")
-            call_ids.update(ids)
-            # Execute in the requested order; later calls may use earlier results.
-            for call in response.tool_calls:
-                try:
-                    if call["name"] not in session.tools:
-                        raise ValueError(f"Unknown tool: {call['name']}")
-                    result = session.tools[call["name"]].invoke(call)
-                except Exception as exc:
-                    result = ToolMessage(
-                        content=json.dumps({"ok": False, "error": str(exc)[:1000]}),
-                        tool_call_id=call["id"], status="error",
-                    )
-                messages.append(result)
-                if verbose:
-                    print(f"[{requirement_id}] Tool result ({result.status}, {call['name']}):\n"
-                          f"{result.content}", flush=True)
-        return session.result("Agent model-turn limit reached")
+            }))]},
+            # Tools share session state, so execute batched calls in order.
+            config={"max_concurrency": 1},
+        )
+        return session.result()
     except Exception as exc:
+        error = f"Agent failed: {str(exc)[:1000]}"
+        if session is not None:
+            return session.result(error)
         return AgentResult(
             requirement_id=requirement_id, requirement_text=requirement_text,
-            retrieved_clause_ids=[], error=f"Agent failed: {str(exc)[:1000]}",
+            retrieved_clause_ids=[], error=error,
         )

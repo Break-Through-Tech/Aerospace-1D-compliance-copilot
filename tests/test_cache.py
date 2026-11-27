@@ -11,17 +11,17 @@ from pydantic import ValidationError
 from src import rag
 from src import cache
 from src.cache import append_record, cache_key, index_fingerprint, load_cache
-from src.schemas import AuditRecord, AuditVerdict
+from src.schemas import AuditDecision, AuditRecord, AuditVerdict
 from src.vector_store import get_embeddings
 
 
 @pytest.fixture
-def services(clause_data, verdict_data):
+def services(clause_data, decision_data):
     # Real settings objects serialize exactly like production; inference is mocked.
     settings = rag.create_audit_client(model="test-model").model_dump(mode="json")
     client = Mock()
     client.model_dump.return_value = settings
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate(verdict_data)
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision.model_validate(decision_data)
     store = Mock()
     store.embeddings = get_embeddings()
     store._collection.metadata = {"hnsw:space": "cosine"}

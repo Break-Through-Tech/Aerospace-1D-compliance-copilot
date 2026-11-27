@@ -17,11 +17,16 @@ def clause_data():
 
 
 @pytest.fixture
-def verdict_data():
+def verdict_data(clause_data):
     return dict(
         clause_id="4.1.2",
-        evidence="document and maintain software requirements",
+        evidence=clause_data["requirement"],
         missing_elements=[],
         rationale="The requirement covers documenting and maintaining requirements.",
         verdict="Meets",
     )
+
+
+@pytest.fixture
+def decision_data(verdict_data):
+    return {key: value for key, value in verdict_data.items() if key != "evidence"}

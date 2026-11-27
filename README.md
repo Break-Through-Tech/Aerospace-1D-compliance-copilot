@@ -33,8 +33,9 @@ installs `zstd` and Ollama when missing. System installation steps require the
 appropriate permissions. Activating the environment applies to your current shell;
 the script cannot activate it in the parent shell.
 
-Review `.env` before proceeding. The example uses `http://localhost:11434`,
-`qwen3:4b`, `nomic-embed-text`, collection `nasa_requirements`, and database
+Review `.env` before proceeding. For an existing setup, set
+`GENERATION_MODEL=qwen3.5:4b` in `.env` and restart notebook kernels. The example uses `http://localhost:11434`,
+`qwen3.5:4b`, `nomic-embed-text`, collection `nasa_requirements`, and database
 directory `chroma_db` relative to the repository root. Existing shell environment
 variables take precedence over `.env`. Start `ollama serve` in another terminal
 if it is not already running, then install the
@@ -43,7 +44,7 @@ if your configuration differs:
 
 ```bash
 ollama pull nomic-embed-text
-ollama pull qwen3:4b
+ollama pull qwen3.5:4b
 ```
 
 For a first build, when the configured collection is absent or empty:
@@ -117,53 +118,43 @@ including a resumed cached evaluation. Destinations under `results/october/` and
 
 ## Compliance agent
 
-`src/agent.py` provides a minimal LangChain tool-calling runtime over the canonical
-RAG pipeline. `run_agent()` binds `retrieve_clause`, `check_requirement`, and
-`log_gap` to the configured Ollama model. Each run returns a canonical audit
-record with an optional finding ID, or an explicit error. Final model prose is
-never accepted as a compliance verdict.
+`src/agent.py` uses LangChain `create_agent` with `retrieve_clause`,
+`check_requirement`, and `log_gap`. Qwen3.5 4B handles both tool selection and
+assessments. Thinking is off by default; agent turns have a 2,048-token output
+budget and structured audits have 600 tokens.
 
-See the [agent usage, tool contracts, safeguards, and walkthrough](docs/agent.md).
-The agent uses the existing dependencies in `requirements.txt`; it does not use
-the October baseline or add an orchestration framework.
+The model returns a clause ID, rationale, missing elements, and verdict. Python
+requires the ID to identify one retrieved clause and fills `evidence` with that
+clause's complete original requirement text. Canonical RAG uses the same audit
+path. The original requirement and stored clauses remain under Python control;
+final model prose cannot replace the validated result.
 
-Use the existing benchmark command with `--agent`:
+Each requirement has a fresh session. Tools execute sequentially because they
+share that session's working data. Strict arguments, verdict/citation validation,
+call limits, and required gap logging reject invalid or incomplete runs. See the
+[tool contracts and execution walkthrough](docs/agent.md).
 
 ```bash
 python -m scripts.evaluate_rag --agent --limit 5
-python -m scripts.evaluate_rag --agent --out results/runs/agent-first-run
-python -m scripts.evaluate_rag --agent --limit 5 --k 3 --out results/runs/agent-top3
+python -m scripts.evaluate_rag --agent --out results/runs/agent-run
 ```
 
-For an interactive walkthrough similar to the RAG evaluation notebook, open
-[05_agent_evaluation_benchmark.ipynb](notebooks/05_agent_evaluation_benchmark.ipynb).
-It defaults to five requirements and displays agent thinking (when returned),
-model messages, tool activity, metrics, failed predictions, and gap findings.
-Results stay in memory without saving separate evaluation artifacts. A diagnostic
-section before the benchmark checks retrieval and compares thinking/budget settings
-on the first requirement only. Its saved outputs show working direct retrieval,
-but zero agent tool calls before output-token limits at both 600 and 2,048 tokens.
-Restart the kernel to load the updated runtime; stop after diagnostics to avoid
-running the later five-requirement benchmark.
+[Notebook 05](notebooks/05_agent_evaluation_benchmark.ipynb) runs the same agent
+with configurable limits and optional LangChain debug output. It starts with five
+requirements; set `limit=None` for the full benchmark. Model inputs include only
+requirement IDs/text, not benchmark labels or expected answers. Failed audits count
+as `INVALID`; reports preserve errors and finding IDs. Agent mode does not support
+caching/resumability. Without `--agent`, canonical RAG retains its batch/cache API.
 
-Without `--agent`, the command keeps its canonical RAG behavior and caching.
-Agent mode reuses one loaded store and configured client, but starts fresh tools
-and conversation messages for each requirement. Only requirement IDs and text
-reach the agent; labels, expected clauses, and reference rationales are reserved
-for evaluation. `--k` defaults to 5 and must be 1–10 in agent mode. Every search
-uses that size, including reformulated queries; retrieval metrics use the same
-`k` on the retrieval selected for assessment.
+The source-evidence experiment selected for integration completed **50/50 audits
+with zero tool errors**, matching **37/50 verdicts (74%)**. Five requirements were
+incorrectly labeled Meets. These are development-benchmark results, not proof of
+reliable compliance judgments; see [the measured results and limitations](docs/agent.md#measured-source-evidence-experiment).
 
-Terminal output and `report.md` identify the mode. Agent failures remain `INVALID`
-predictions, and saved records retain errors and finding IDs. Agent mode makes
-additional model calls to choose tools and finish the conversation. Agent caching
-and resumability are not implemented: combining `--agent` and `--cache` is an
-argument error before services are loaded. Measure benchmark results before
-claiming an improvement; the existing RAG scores below are not agent scores.
+## Recorded canonical RAG benchmark
 
-## Verified benchmark and limitations
-
-The November 7, 2026 evaluation used `qwen3:4b`, `nomic-embed-text`, top-k 5,
+These figures describe the earlier model-written-evidence RAG configuration,
+not a rerun of the current defaults. The November 7, 2026 evaluation used `qwen3:4b`, `nomic-embed-text`, top-k 5,
 the corrected 130-clause NASA corpus, and all 50 benchmark requirements without
 cached predictions. The directional prompt and rationale-first verdict schema
 achieved the following results, compared with 36% accuracy for the prior baseline:
@@ -221,11 +212,8 @@ The published October Ollama v2 run has 50 benchmark rows and top-k 5. See its
 python -m pytest -q
 ```
 
-Verified on November 21, 2026: **256 passed** across the full suite; the focused
-agent, evaluation, reporting, and RAG run had **155 passed**. See
-[agent verification](docs/agent.md#verify-offline)
-for setup, package versions, tool validation, and remaining live-model
-limitations.
+See [agent verification](docs/agent.md#verify-offline) for dependency setup,
+tool validation, source-evidence checks, and the limits of offline tests.
 
 Project context: [challenge overview](Challenge-Project-Overview.md),
 [getting started](Getting-Started-for-Fellows.md), and [data documentation](data/README.md).

@@ -9,7 +9,7 @@ from ollama import ResponseError
 from pydantic import ValidationError
 
 from src.rag import run_audits
-from src.schemas import AuditRecord, AuditVerdict
+from src.schemas import AuditDecision, AuditRecord, AuditVerdict
 
 
 @pytest.fixture
@@ -19,19 +19,18 @@ def requirements():
 
 @pytest.mark.parametrize("invalid_fields,error", [
     ({"clause_id": "999.999"}, "Cited clause is not in the retrieved set"),
-    ({"evidence": "Invented quotation"},
-     "Evidence must be an exact excerpt of the selected clause's requirement"),
 ])
 def test_records_preserve_order_failures_and_shared_resources(
-    requirements, clause_data, verdict_data, invalid_fields, error, capsys,
+    requirements, clause_data, verdict_data, decision_data, invalid_fields, error, capsys,
 ):
     store = Mock()
     store.similarity_search.return_value = [Document(page_content="Search text", metadata=clause_data)]
     valid_verdict = AuditVerdict.model_validate(verdict_data)
-    invalid_citation = AuditVerdict.model_validate({**verdict_data, **invalid_fields})
+    valid_decision = AuditDecision(**decision_data)
+    invalid_citation = AuditDecision.model_validate({**decision_data, **invalid_fields})
     client = Mock()
     client.with_structured_output.return_value.invoke.side_effect = [
-        valid_verdict, invalid_citation, invalid_citation, valid_verdict,
+        valid_decision, invalid_citation, invalid_citation, valid_decision,
     ]
 
     records = run_audits(iter(requirements), store, client, k=2)
@@ -42,7 +41,7 @@ def test_records_preserve_order_failures_and_shared_resources(
         call(text, k=2) for _, text in requirements
     ]
     assert client.with_structured_output.call_args_list == [
-        call(AuditVerdict, method="json_schema")
+        call(AuditDecision, method="json_schema")
     ] * 3
     assert records[0].verdict == valid_verdict
     assert records[0].grounded and records[0].error is None

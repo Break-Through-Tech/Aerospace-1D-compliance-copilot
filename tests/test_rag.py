@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from pydantic import ValidationError
 
 from src import rag
-from src.schemas import AuditVerdict, Clause
+from src.schemas import AuditDecision, Clause
 
 
 def test_retrieve_uses_injected_store_and_preserves_order(clause_data):
@@ -42,13 +42,14 @@ def test_retrieve_rejects_invalid_inputs_before_search(requirement, k):
     store.similarity_search.assert_not_called()
 
 
-def test_audit_returns_grounded_verdict(clause_data, verdict_data):
+def test_audit_returns_grounded_verdict(clause_data, decision_data):
     client = Mock()
-    verdict = AuditVerdict.model_validate(verdict_data)
+    verdict = AuditDecision.model_validate(decision_data)
     client.with_structured_output.return_value.invoke.return_value = verdict
     clause = Clause.model_validate(clause_data)
     result = rag.audit_requirement("Maintain requirements", [clause], client=client)
-    assert result == verdict
+    assert result.model_dump(exclude={"evidence"}) == verdict.model_dump()
+    assert result.evidence == clause_data["requirement"]
     client.with_structured_output.return_value.invoke.assert_called_once()
 
 
@@ -59,9 +60,9 @@ def test_audit_client_keeps_model_configurable_and_uses_ollama_context_default()
     assert client.num_predict == 600
 
 
-def test_audit_creates_default_client_with_requested_model(monkeypatch, clause_data, verdict_data):
+def test_audit_creates_default_client_with_requested_model(monkeypatch, clause_data, decision_data):
     client = Mock()
-    verdict = AuditVerdict.model_validate(verdict_data)
+    verdict = AuditDecision.model_validate(decision_data)
     client.with_structured_output.return_value.invoke.return_value = verdict
     make_client = Mock(return_value=client)
     monkeypatch.setattr(rag, "create_audit_client", make_client)
@@ -71,63 +72,53 @@ def test_audit_creates_default_client_with_requested_model(monkeypatch, clause_d
     )
 
     make_client.assert_called_once_with(model="custom-model")
-    assert result == verdict
+    assert result.model_dump(exclude={"evidence"}) == verdict.model_dump()
+    assert result.evidence == clause_data["requirement"]
 
 
-@pytest.mark.parametrize("clause_id,evidence,error", [
-    ("999.999", "document", "Cited clause"),
-    ("4.1.2", "invented quotation", "exact excerpt"),
-    ("4.1.2", "Evidence from another clause", "exact excerpt"),
-])
-def test_audit_rejects_ungrounded_verdicts(
-    clause_data, verdict_data, clause_id, evidence, error,
-):
-    clauses = [Clause.model_validate(clause_data), Clause.model_validate({
-        **clause_data, "clause": "4.1.3", "requirement": "Evidence from another clause",
-    })]
+def test_audit_rejects_unretrieved_clause_ids(clause_data, decision_data):
     client = Mock()
-    client.with_structured_output.return_value.invoke.return_value = AuditVerdict.model_validate({
-        **verdict_data, "clause_id": clause_id, "evidence": evidence,
-    })
-    with pytest.raises(rag.CitationValidationError, match=error):
-        rag.audit_requirement("Maintain requirements", clauses, client=client)
+    client.with_structured_output.return_value.invoke.return_value = AuditDecision(
+        **{**decision_data, "clause_id": "999.999"},
+    )
+    with pytest.raises(rag.CitationValidationError, match="Cited clause"):
+        rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
     assert client.with_structured_output.return_value.invoke.call_count == 2
 
 
-@pytest.fixture(params=["json", "schema", "validation", "citation", "evidence"])
-def invalid_output(request, verdict_data):
+@pytest.fixture(params=["json", "schema", "validation", "citation"])
+def invalid_output(request, decision_data):
     """Use the actual LangChain parser for malformed JSON and schema failures."""
     from langchain_core.output_parsers import PydanticOutputParser
 
     if request.param == "validation":
         with pytest.raises(ValidationError) as caught:
-            AuditVerdict.model_validate({})
+            AuditDecision.model_validate({})
         return caught.value
     if request.param in {"json", "schema"}:
         from langchain_core.exceptions import OutputParserException
 
-        parser = PydanticOutputParser(pydantic_object=AuditVerdict)
+        parser = PydanticOutputParser(pydantic_object=AuditDecision)
         try:
             parser.parse("not JSON" if request.param == "json" else "{}")
         except OutputParserException as exc:
             return exc
         pytest.fail("The parser should reject invalid output")
-    if request.param == "citation":
-        return AuditVerdict.model_validate({**verdict_data, "clause_id": "999.999"})
-    return AuditVerdict.model_validate({**verdict_data, "evidence": "invented quotation"})
+    return AuditDecision.model_validate({**decision_data, "clause_id": "999.999"})
 
 
-def test_invalid_output_is_corrected_with_feedback(clause_data, verdict_data, invalid_output):
+def test_invalid_output_is_corrected_with_feedback(clause_data, decision_data, invalid_output):
     client = Mock()
     invoke = client.with_structured_output.return_value.invoke
-    corrected = AuditVerdict.model_validate(verdict_data)
+    corrected = AuditDecision.model_validate(decision_data)
     invoke.side_effect = [invalid_output, corrected]
 
     result = rag.audit_requirement("Maintain requirements", [Clause(**clause_data)], client=client)
 
-    assert result == corrected
+    assert result.model_dump(exclude={"evidence"}) == corrected.model_dump()
+    assert result.evidence == clause_data["requirement"]
     assert invoke.call_count == 2
-    client.with_structured_output.assert_called_once_with(AuditVerdict, method="json_schema")
+    client.with_structured_output.assert_called_once_with(AuditDecision, method="json_schema")
     original, retry = [call.args[0] for call in invoke.call_args_list]
     assert len(original) == 2
     assert retry[:2] == original
